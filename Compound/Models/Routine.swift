@@ -20,3 +20,10 @@ final class Routine {
         self.sortOrder = sortOrder
     }
 }
+
+extension Routine {
+    /// Planned exercises in their user-defined order.
+    var orderedExercises: [RoutineExercise] {
+        exercises.sorted { $0.position < $1.position }
+    }
+}

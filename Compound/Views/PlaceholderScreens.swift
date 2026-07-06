@@ -12,15 +12,6 @@ struct LogView: View {
     }
 }
 
-struct RoutinesView: View {
-    var body: some View {
-        NavigationStack {
-            ComingSoon(text: "Your routines will appear here.")
-                .navigationTitle("Routines")
-        }
-    }
-}
-
 struct StatsView: View {
     var body: some View {
         NavigationStack {
