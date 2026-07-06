@@ -21,19 +21,24 @@ final class Settings {
     var restSoundEnabled: Bool
     var restVibrationEnabled: Bool
     var theme: ThemePreference
+    /// User-editable rest-timer presets, in seconds. Default value doubles as the
+    /// lightweight-migration default for stores created before this property.
+    var restPresets: [Int] = [30, 60, 90, 120, 180]
 
     init(
         units: UnitSystem = .pounds,
         defaultRestSeconds: Int = 90,
         restSoundEnabled: Bool = true,
         restVibrationEnabled: Bool = true,
-        theme: ThemePreference = .system
+        theme: ThemePreference = .system,
+        restPresets: [Int] = [30, 60, 90, 120, 180]
     ) {
         self.units = units
         self.defaultRestSeconds = defaultRestSeconds
         self.restSoundEnabled = restSoundEnabled
         self.restVibrationEnabled = restVibrationEnabled
         self.theme = theme
+        self.restPresets = restPresets
     }
 
     /// Returns the singleton settings row, creating it if absent.

@@ -3,10 +3,11 @@ import SwiftData
 
 /// Read-only view of a routine with the entry point to start a workout.
 struct RoutineDetailView: View {
+    @Environment(\.modelContext) private var context
     @Bindable var routine: Routine
 
     @State private var isEditing = false
-    @State private var showStartStub = false
+    @State private var session: WorkoutSession?
 
     var body: some View {
         List {
@@ -36,7 +37,7 @@ struct RoutineDetailView: View {
         .navigationTitle(routine.name.isEmpty ? "Untitled" : routine.name)
         .safeAreaInset(edge: .bottom) {
             Button {
-                showStartStub = true
+                session = WorkoutHistory.makeSession(for: routine, context: context)
             } label: {
                 Text("Start Workout")
                     .fontWeight(.semibold)
@@ -56,10 +57,8 @@ struct RoutineDetailView: View {
         .sheet(isPresented: $isEditing) {
             RoutineEditorView(routine: routine, isNew: false)
         }
-        .alert("Coming in Phase 2", isPresented: $showStartStub) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            Text("Running a workout session is implemented in the next phase.")
+        .fullScreenCover(item: $session) { session in
+            WorkoutSessionView(session: session)
         }
     }
 }
