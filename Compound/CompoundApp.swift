@@ -3,23 +3,24 @@ import SwiftData
 
 @main
 struct CompoundApp: App {
-    var sharedModelContainer: ModelContainer = {
-        let schema = Schema([
-            Item.self,
-        ])
-        let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
+    let container: ModelContainer
 
+    init() {
         do {
-            return try ModelContainer(for: schema, configurations: [modelConfiguration])
+            container = try ModelContainer(
+                for: AppSchema.model,
+                configurations: ModelConfiguration()
+            )
+            SeedData.seedIfNeeded(context: container.mainContext)
         } catch {
             fatalError("Could not create ModelContainer: \(error)")
         }
-    }()
+    }
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            RootTabView()
         }
-        .modelContainer(sharedModelContainer)
+        .modelContainer(container)
     }
 }
