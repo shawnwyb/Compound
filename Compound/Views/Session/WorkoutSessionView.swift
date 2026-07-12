@@ -20,7 +20,7 @@ struct WorkoutSessionView: View {
                 ForEach(session.exercises) { exercise in
                     Section {
                         ForEach(exercise.sets) { set in
-                            SetRow(set: set) { session.toggle(set) }
+                            SetRow(set: set, unit: settings.units.abbreviation) { session.toggle(set) }
                         }
                         .onDelete { exercise.deleteSets(at: $0) }
 
@@ -54,7 +54,7 @@ struct WorkoutSessionView: View {
                 }
             }
             .safeAreaInset(edge: .bottom) {
-                RestTimerButton(rest: session.rest) { showTimer = true }
+                RestTimerButton(rest: session.rest, settings: settings) { showTimer = true }
             }
             .sheet(isPresented: $showTimer) {
                 RestTimerSheet(rest: session.rest, settings: settings)
@@ -85,6 +85,7 @@ struct WorkoutSessionView: View {
 /// One logged set: number, weight, reps, and a completion toggle.
 private struct SetRow: View {
     @Bindable var set: SessionSet
+    let unit: String
     let onToggle: () -> Void
 
     var body: some View {
@@ -94,7 +95,7 @@ private struct SetRow: View {
                 .foregroundStyle(.secondary)
                 .frame(width: 24)
 
-            numberField(value: $set.weight, unit: "lb", width: 66)
+            numberField(value: $set.weight, unit: unit, width: 66)
             intField(value: $set.reps, unit: "reps", width: 58)
 
             Spacer()
@@ -136,6 +137,7 @@ private struct SetRow: View {
 /// countdown when a rest is running, and auto-stops it at zero.
 private struct RestTimerButton: View {
     @Bindable var rest: RestTimer
+    let settings: Settings
     let onTap: () -> Void
 
     var body: some View {
@@ -158,7 +160,13 @@ private struct RestTimerButton: View {
                 .padding()
                 .contentShape(Rectangle())
                 .onChange(of: remaining) { _, newValue in
-                    if rest.isActive && newValue == 0 { rest.stop() }
+                    if rest.isActive && newValue == 0 {
+                        RestCompletionAlert.play(
+                            sound: settings.restSoundEnabled,
+                            vibration: settings.restVibrationEnabled
+                        )
+                        rest.stop()
+                    }
                 }
             }
         }
@@ -194,6 +202,15 @@ private struct RestTimerSheet: View {
                                 .buttonStyle(.borderedProminent)
                         }
                         .font(.headline)
+                    } else {
+                        Button {
+                            rest.start(seconds: settings.defaultRestSeconds)
+                        } label: {
+                            Text("Start \(TimeFormat.clock(settings.defaultRestSeconds))")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .font(.headline)
                     }
 
                     presets
@@ -220,9 +237,6 @@ private struct RestTimerSheet: View {
                 .font(.system(size: 68, weight: .semibold, design: .rounded))
                 .monospacedDigit()
                 .foregroundStyle(rest.isActive ? .primary : .secondary)
-                .onChange(of: remaining) { _, newValue in
-                    if rest.isActive && newValue == 0 { rest.stop() }
-                }
         }
     }
 

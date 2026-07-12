@@ -136,7 +136,12 @@ struct WorkoutEditorView: View {
 
 /// One editable set row: number, weight, reps, completion.
 private struct WorkoutSetRow: View {
+    @Query private var settingsRows: [Settings]
     @Bindable var set: SetEntry
+
+    private var unit: String {
+        settingsRows.first?.units.abbreviation ?? UnitSystem.pounds.abbreviation
+    }
 
     var body: some View {
         HStack(spacing: 12) {
@@ -145,7 +150,7 @@ private struct WorkoutSetRow: View {
                 .foregroundStyle(.secondary)
                 .frame(width: 24)
 
-            numberField(value: $set.weight, unit: "lb", width: 66)
+            numberField(value: $set.weight, unit: unit, width: 66)
             intField(value: $set.reps, unit: "reps", width: 58)
 
             Spacer()

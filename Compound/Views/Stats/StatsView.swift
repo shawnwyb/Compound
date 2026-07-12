@@ -5,6 +5,11 @@ import Charts
 /// Progress tab: totals, streaks, charts, muscle-group breakdown, and PRs.
 struct StatsView: View {
     @Query(sort: \Workout.date, order: .reverse) private var workouts: [Workout]
+    @Query private var settingsRows: [Settings]
+
+    private var unitLabel: String {
+        settingsRows.first?.units.abbreviation ?? UnitSystem.pounds.abbreviation
+    }
 
     private var snapshot: [StatsWorkout] {
         StatsSnapshot.from(workouts)
@@ -216,14 +221,14 @@ struct StatsView: View {
     }
 
     private func volumeLabel(_ value: Double) -> String {
-        "\(compactVolume(value)) lb"
+        "\(compactVolume(value)) \(unitLabel)"
     }
 
     private func weightLabel(_ value: Double) -> String {
         if value == floor(value) {
-            return "\(Int(value)) lb"
+            return "\(Int(value)) \(unitLabel)"
         }
-        return String(format: "%.1f lb", value)
+        return String(format: "%.1f \(unitLabel)", value)
     }
 
     private func setLabel(_ count: Int) -> String {

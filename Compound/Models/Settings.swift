@@ -5,11 +5,20 @@ enum UnitSystem: String, Codable, CaseIterable, Identifiable {
     case pounds, kilograms
     var id: String { rawValue }
     var abbreviation: String { self == .pounds ? "lb" : "kg" }
+    var title: String { self == .pounds ? "Pounds (lb)" : "Kilograms (kg)" }
 }
 
 enum ThemePreference: String, Codable, CaseIterable, Identifiable {
     case system, light, dark
     var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .system: "System"
+        case .light: "Light"
+        case .dark: "Dark"
+        }
+    }
 }
 
 /// Single-record app configuration (the Profile / settings page). Fetch-or-create
