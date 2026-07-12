@@ -33,4 +33,42 @@ enum PreviewData {
         }
         return routine
     }
+
+    /// A finished workout for Log / editor previews.
+    @MainActor
+    static var sampleWorkout: Workout {
+        let context = container.mainContext
+        if let existing = try? context.fetch(FetchDescriptor<Workout>()).first {
+            return existing
+        }
+        let routine = sampleRoutine
+        let workout = Workout(
+            routineID: routine.id,
+            routineName: routine.name,
+            date: .now,
+            startedAt: .now.addingTimeInterval(-2700),
+            durationSeconds: 2700
+        )
+        context.insert(workout)
+        for (index, planned) in routine.orderedExercises.prefix(2).enumerated() {
+            let performed = WorkoutExercise(
+                exercise: planned.exercise,
+                exerciseName: planned.exercise?.name ?? "Exercise",
+                position: index
+            )
+            context.insert(performed)
+            performed.workout = workout
+            for setNumber in 1...3 {
+                let entry = SetEntry(
+                    setNumber: setNumber,
+                    reps: 8,
+                    weight: 135,
+                    completed: setNumber < 3
+                )
+                context.insert(entry)
+                entry.workoutExercise = performed
+            }
+        }
+        return workout
+    }
 }

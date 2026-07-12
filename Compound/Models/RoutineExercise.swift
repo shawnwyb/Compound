@@ -3,7 +3,7 @@ import SwiftData
 
 /// A *plan* row inside a routine: which exercise, and how many sets to target.
 /// Reps/weight are intentionally NOT stored here — "remembered" values come from
-/// the most recent completed `Workout` (see PrefillService).
+/// the most recent workout that has real data for the exercise (see PrefillService).
 @Model
 final class RoutineExercise {
     var id: UUID

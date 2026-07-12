@@ -1,16 +1,7 @@
 import SwiftUI
 
-// Phase-0 placeholders. Each tab is fleshed out in its own phase:
-// Routines → Phase 1, Log → Phase 3, Stats → Phase 4, Profile → Phase 5.
-
-struct LogView: View {
-    var body: some View {
-        NavigationStack {
-            ComingSoon(text: "Your workout history will appear here.")
-                .navigationTitle("Log")
-        }
-    }
-}
+// Phase-0 placeholders for tabs not yet built:
+// Stats → Phase 4, Profile → Phase 5.
 
 struct StatsView: View {
     var body: some View {

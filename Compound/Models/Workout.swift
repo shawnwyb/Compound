@@ -37,3 +37,15 @@ final class Workout {
         self.editedAt = editedAt
     }
 }
+
+extension Workout {
+    /// Exercises in the order they were performed / arranged.
+    var orderedExercises: [WorkoutExercise] {
+        exercises.sorted { $0.position < $1.position }
+    }
+
+    /// Completed sets across the whole session.
+    var completedSetCount: Int {
+        exercises.reduce(0) { $0 + $1.sets.filter(\.completed).count }
+    }
+}

@@ -29,3 +29,10 @@ final class WorkoutExercise {
         self.position = position
     }
 }
+
+extension WorkoutExercise {
+    /// Sets in set-number order.
+    var orderedSets: [SetEntry] {
+        sets.sorted { $0.setNumber < $1.setNumber }
+    }
+}

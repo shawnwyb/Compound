@@ -56,7 +56,7 @@ enum WorkoutHistory {
         )
     }
 
-    /// Persist a finished session as an immutable `Workout` snapshot.
+    /// Persist a finished session as a `Workout` snapshot (later editable from Log).
     @MainActor
     static func persist(_ session: WorkoutSession, finishedAt: Date = .now, context: ModelContext) {
         let workout = Workout(
