@@ -13,5 +13,6 @@ enum AppSchema {
         WorkoutExercise.self,
         SetEntry.self,
         Settings.self,
+        DailyEntry.self,
     ])
 }

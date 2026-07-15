@@ -11,6 +11,7 @@ enum DataExport {
         var exercises: [ExerciseDTO]
         var routines: [RoutineDTO]
         var workouts: [WorkoutDTO]
+        var dailyEntries: [DailyEntryDTO]
     }
 
     struct SettingsDTO: Codable {
@@ -79,6 +80,15 @@ enum DataExport {
         var restSeconds: Int?
     }
 
+    struct DailyEntryDTO: Codable {
+        var id: UUID
+        var date: Date
+        var bodyWeight: Double?
+        var foodText: String
+        var calories: Int?
+        var protein: Int?
+    }
+
     /// Builds a Codable payload from the live store.
     @MainActor
     static func payload(from context: ModelContext) throws -> Payload {
@@ -87,6 +97,7 @@ enum DataExport {
         let exercises = try context.fetch(FetchDescriptor<Exercise>(sortBy: [SortDescriptor(\.name)]))
         let routines = try context.fetch(FetchDescriptor<Routine>(sortBy: [SortDescriptor(\.sortOrder)]))
         let workouts = try context.fetch(FetchDescriptor<Workout>(sortBy: [SortDescriptor(\.date, order: .reverse)]))
+        let dailyEntries = try context.fetch(FetchDescriptor<DailyEntry>(sortBy: [SortDescriptor(\.date, order: .reverse)]))
 
         return Payload(
             exportedAt: .now,
@@ -153,6 +164,16 @@ enum DataExport {
                             }
                         )
                     }
+                )
+            },
+            dailyEntries: dailyEntries.filter(\.hasData).map { entry in
+                DailyEntryDTO(
+                    id: entry.id,
+                    date: entry.date,
+                    bodyWeight: entry.bodyWeight,
+                    foodText: entry.foodText,
+                    calories: entry.calories,
+                    protein: entry.protein
                 )
             }
         )

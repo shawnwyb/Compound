@@ -71,4 +71,27 @@ enum PreviewData {
         }
         return workout
     }
+
+    /// A couple of weeks of body data for the Body tab preview.
+    @MainActor
+    static var sampleBody: Void {
+        let context = container.mainContext
+        guard ((try? context.fetch(FetchDescriptor<DailyEntry>()))?.isEmpty ?? true) else { return }
+
+        let calendar = Calendar.current
+        let weights: [Double] = [186, 185.5, 185, 185.5, 184, 184.5, 183.5, 183, 183.5, 182, 182.5, 181.5, 181, 181]
+        for (offset, weight) in weights.enumerated() {
+            let day = calendar.date(byAdding: .day, value: -(weights.count - offset), to: .now) ?? .now
+            let entry = DailyEntry(
+                date: day,
+                bodyWeight: weight,
+                foodText: offset % 3 == 0
+                    ? "Oatmeal + eggs, chicken rice bowl, salmon & veggies, greek yogurt"
+                    : "",
+                calories: offset % 3 == 0 ? 2100 - offset * 10 : nil,
+                protein: offset % 3 == 0 ? 165 : nil
+            )
+            context.insert(entry)
+        }
+    }
 }

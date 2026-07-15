@@ -21,6 +21,9 @@ struct RootTabView: View {
             StatsView()
                 .tabItem { Label("Stats", systemImage: "chart.bar.fill") }
 
+            BodyView()
+                .tabItem { Label("Body", systemImage: "scalemass.fill") }
+
             ProfileView()
                 .tabItem { Label("Profile", systemImage: "person.crop.circle") }
         }

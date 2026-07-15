@@ -130,6 +130,10 @@ struct ProfileView: View {
         for set in sets {
             set.weight = WeightConversion.convert(set.weight, from: from, to: to)
         }
+        let dailyEntries = (try? context.fetch(FetchDescriptor<DailyEntry>())) ?? []
+        for entry in dailyEntries where entry.bodyWeight != nil {
+            entry.bodyWeight = WeightConversion.convert(entry.bodyWeight!, from: from, to: to)
+        }
     }
 
     private func deletePresets(at offsets: IndexSet, settings: Settings) {
