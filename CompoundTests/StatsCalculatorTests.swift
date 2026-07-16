@@ -85,47 +85,6 @@ final class StatsCalculatorTests: XCTestCase {
         XCTAssertEqual(totals.totalVolume, 500 + 500 + 300)
     }
 
-    // MARK: - Group breakdown
-
-    func testGroupBreakdownSumsVolumeAndSets() {
-        let w = workout(on: day(2026, 7, 1), exercises: [
-            exercise(id: bench, name: "Bench", groupID: chest, group: "Chest", sets: [
-                set(10, 100), set(5, 100, completed: false),
-            ]),
-            exercise(id: row, name: "Row", groupID: back, group: "Back", sets: [
-                set(8, 50), set(8, 50),
-            ]),
-        ])
-
-        let groups = StatsCalculator.groupBreakdown(in: [w])
-        XCTAssertEqual(groups.map(\.groupName), ["Chest", "Back"]) // Chest 1000 > Back 800
-        XCTAssertEqual(groups[0].volume, 1000)
-        XCTAssertEqual(groups[0].setCount, 1)
-        XCTAssertEqual(groups[1].volume, 800)
-        XCTAssertEqual(groups[1].setCount, 2)
-    }
-
-    func testGroupBreakdownIgnoresGroupsWithNoCompletedWork() {
-        let w = workout(on: day(2026, 7, 1), exercises: [
-            exercise(id: bench, name: "Bench", groupID: chest, group: "Chest", sets: [
-                set(10, 100, completed: false),
-            ])
-        ])
-        XCTAssertTrue(StatsCalculator.groupBreakdown(in: [w]).isEmpty)
-    }
-
-    func testUncategorizedGroupsTogether() {
-        let w = workout(on: day(2026, 7, 1), exercises: [
-            exercise(id: bench, name: "Bench", groupID: nil, group: "Uncategorized", sets: [set(5, 100)]),
-            exercise(id: row, name: "Row", groupID: nil, group: "Uncategorized", sets: [set(5, 50)]),
-        ])
-        let groups = StatsCalculator.groupBreakdown(in: [w])
-        XCTAssertEqual(groups.count, 1)
-        XCTAssertEqual(groups[0].groupName, "Uncategorized")
-        XCTAssertEqual(groups[0].volume, 750)
-        XCTAssertEqual(groups[0].setCount, 2)
-    }
-
     // MARK: - Est. 1RM
 
     func testEstimatedOneRepMaxEpley() {
@@ -133,51 +92,6 @@ final class StatsCalculatorTests: XCTestCase {
         XCTAssertEqual(StatsCalculator.estimatedOneRepMax(weight: 100, reps: 10), 100 * (1 + 10.0 / 30), accuracy: 0.0001)
         XCTAssertEqual(StatsCalculator.estimatedOneRepMax(weight: 0, reps: 10), 0)
         XCTAssertEqual(StatsCalculator.estimatedOneRepMax(weight: 100, reps: 0), 0)
-    }
-
-    // MARK: - Personal records
-
-    func testPersonalRecordsPickBestWeightAndBestE1RM() {
-        let lightForReps = workout(on: day(2026, 7, 1), exercises: [
-            exercise(id: bench, name: "Bench", groupID: chest, group: "Chest", sets: [
-                set(10, 100), // e1rm ≈ 133.33
-            ])
-        ])
-        let heavySingle = workout(on: day(2026, 7, 2), exercises: [
-            exercise(id: bench, name: "Bench Press", groupID: chest, group: "Chest", sets: [
-                set(1, 130), // weight wins; e1rm = 130
-            ])
-        ])
-        let incomplete = workout(on: day(2026, 7, 3), exercises: [
-            exercise(id: bench, name: "Bench", groupID: chest, group: "Chest", sets: [
-                set(1, 200, completed: false),
-            ])
-        ])
-
-        let prs = StatsCalculator.personalRecords(in: [lightForReps, heavySingle, incomplete])
-        XCTAssertEqual(prs.count, 1)
-        XCTAssertEqual(prs[0].exerciseName, "Bench Press")
-        XCTAssertEqual(prs[0].bestWeight, 130)
-        XCTAssertEqual(prs[0].bestWeightDate, day(2026, 7, 2))
-        XCTAssertEqual(prs[0].estimatedOneRepMax, 100 * (1 + 10.0 / 30), accuracy: 0.0001)
-    }
-
-    func testPersonalRecordsSortedByE1RM() {
-        let w = workout(on: day(2026, 7, 1), exercises: [
-            exercise(id: bench, name: "Bench", groupID: chest, group: "Chest", sets: [set(1, 100)]),
-            exercise(id: row, name: "Row", groupID: back, group: "Back", sets: [set(1, 150)]),
-        ])
-        let prs = StatsCalculator.personalRecords(in: [w])
-        XCTAssertEqual(prs.map(\.exerciseName), ["Row", "Bench"])
-    }
-
-    func testPersonalRecordsSkipExercisesWithNoCompletedWeight() {
-        let w = workout(on: day(2026, 7, 1), exercises: [
-            exercise(id: bench, name: "Bench", groupID: chest, group: "Chest", sets: [
-                set(0, 0), set(5, 0), set(0, 100, completed: false),
-            ])
-        ])
-        XCTAssertTrue(StatsCalculator.personalRecords(in: [w]).isEmpty)
     }
 
     // MARK: - Streaks
@@ -258,34 +172,177 @@ final class StatsCalculatorTests: XCTestCase {
         XCTAssertEqual(streak.daysLast30, 4)
     }
 
-    // MARK: - Time series
+    // MARK: - Tracked exercises
 
-    func testWorkoutsPerDayCountsSessionsAndSorts() {
+    func testTrackedExercisesMostRecentFirst() {
         let workouts = [
-            workout(on: day(2026, 7, 2, hour: 18), exercises: []),
-            workout(on: day(2026, 7, 1), exercises: []),
-            workout(on: day(2026, 7, 2, hour: 9), exercises: []),
-        ]
-        let points = StatsCalculator.workoutsPerDay(in: workouts, calendar: calendar)
-        XCTAssertEqual(points.map(\.count), [1, 2])
-        XCTAssertEqual(points[0].day, calendar.startOfDay(for: day(2026, 7, 1)))
-        XCTAssertEqual(points[1].day, calendar.startOfDay(for: day(2026, 7, 2)))
-    }
-
-    func testVolumePerDaySumsCompletedVolume() {
-        let workouts = [
-            workout(on: day(2026, 7, 1, hour: 9), exercises: [
+            workout(on: day(2026, 7, 1), exercises: [
                 exercise(id: bench, name: "Bench", groupID: chest, group: "Chest", sets: [set(5, 100)])
             ]),
-            workout(on: day(2026, 7, 1, hour: 18), exercises: [
-                exercise(id: row, name: "Row", groupID: back, group: "Back", sets: [
-                    set(10, 50),
-                    set(10, 50, completed: false),
+            workout(on: day(2026, 7, 5), exercises: [
+                exercise(id: row, name: "Row", groupID: back, group: "Back", sets: [set(5, 60)])
+            ]),
+        ]
+        let tracked = StatsCalculator.trackedExercises(in: workouts)
+        XCTAssertEqual(tracked.map(\.id), [row, bench]) // Row performed more recently
+        XCTAssertEqual(tracked.first?.lastPerformed, day(2026, 7, 5))
+    }
+
+    func testTrackedExercisesSkipsExercisesWithoutCompletedWeight() {
+        let workouts = [
+            workout(on: day(2026, 7, 1), exercises: [
+                exercise(id: bench, name: "Bench", groupID: chest, group: "Chest", sets: [
+                    set(5, 100, completed: false), set(0, 0),
                 ])
             ]),
         ]
-        let points = StatsCalculator.volumePerDay(in: workouts, calendar: calendar)
-        XCTAssertEqual(points.count, 1)
-        XCTAssertEqual(points[0].volume, 1000)
+        XCTAssertTrue(StatsCalculator.trackedExercises(in: workouts).isEmpty)
+    }
+
+    // MARK: - Exercise series
+
+    func testExerciseSeriesTopSetWeight() {
+        let workouts = [
+            workout(on: day(2026, 7, 3), exercises: [
+                exercise(id: bench, name: "Bench", groupID: chest, group: "Chest", sets: [
+                    set(8, 135), set(5, 145), set(3, 155),
+                ])
+            ]),
+            workout(on: day(2026, 7, 1), exercises: [
+                exercise(id: bench, name: "Bench", groupID: chest, group: "Chest", sets: [
+                    set(8, 130), set(5, 140),
+                ])
+            ]),
+        ]
+        let series = StatsCalculator.exerciseSeries(
+            exerciseID: bench, metric: .topSetWeight, in: workouts, calendar: calendar
+        )
+        // Sorted oldest → newest; each day is the heaviest completed set.
+        XCTAssertEqual(series.map(\.value), [140, 155])
+        XCTAssertEqual(series[0].date, calendar.startOfDay(for: day(2026, 7, 1)))
+        XCTAssertEqual(series[1].date, calendar.startOfDay(for: day(2026, 7, 3)))
+    }
+
+    func testExerciseSeriesEstimatedOneRepMaxUsesBestSet() {
+        let w = workout(on: day(2026, 7, 1), exercises: [
+            exercise(id: bench, name: "Bench", groupID: chest, group: "Chest", sets: [
+                set(10, 100), // e1rm ≈ 133.33
+                set(1, 130),  // e1rm = 130
+            ])
+        ])
+        let series = StatsCalculator.exerciseSeries(
+            exerciseID: bench, metric: .estimatedOneRepMax, in: [w], calendar: calendar
+        )
+        XCTAssertEqual(series.count, 1)
+        XCTAssertEqual(series[0].value, 100 * (1 + 10.0 / 30), accuracy: 0.0001)
+    }
+
+    func testExerciseSeriesVolumeSumsCompletedAndIgnoresOthers() {
+        let w = workout(on: day(2026, 7, 1), exercises: [
+            exercise(id: bench, name: "Bench", groupID: chest, group: "Chest", sets: [
+                set(10, 100),               // 1000
+                set(5, 120),                // 600
+                set(5, 200, completed: false), // ignored
+            ])
+        ])
+        let series = StatsCalculator.exerciseSeries(
+            exerciseID: bench, metric: .volume, in: [w], calendar: calendar
+        )
+        XCTAssertEqual(series.map(\.value), [1600])
+    }
+
+    func testExerciseSeriesSameDayWeightKeepsBestVolumeSums() {
+        let workouts = [
+            workout(on: day(2026, 7, 1, hour: 9), exercises: [
+                exercise(id: bench, name: "Bench", groupID: chest, group: "Chest", sets: [set(5, 140)])
+            ]),
+            workout(on: day(2026, 7, 1, hour: 18), exercises: [
+                exercise(id: bench, name: "Bench", groupID: chest, group: "Chest", sets: [set(5, 150)])
+            ]),
+        ]
+        let topSet = StatsCalculator.exerciseSeries(
+            exerciseID: bench, metric: .topSetWeight, in: workouts, calendar: calendar
+        )
+        XCTAssertEqual(topSet.map(\.value), [150]) // best of the day
+
+        let volume = StatsCalculator.exerciseSeries(
+            exerciseID: bench, metric: .volume, in: workouts, calendar: calendar
+        )
+        XCTAssertEqual(volume.map(\.value), [1450]) // 5×140 + 5×150, summed
+    }
+
+    func testExerciseSeriesFiltersToRequestedExercise() {
+        let w = workout(on: day(2026, 7, 1), exercises: [
+            exercise(id: bench, name: "Bench", groupID: chest, group: "Chest", sets: [set(5, 100)]),
+            exercise(id: row, name: "Row", groupID: back, group: "Back", sets: [set(5, 200)]),
+        ])
+        let series = StatsCalculator.exerciseSeries(
+            exerciseID: bench, metric: .topSetWeight, in: [w], calendar: calendar
+        )
+        XCTAssertEqual(series.map(\.value), [100])
+    }
+
+    // MARK: - Body series
+
+    func testBodySeriesSkipsMissingValuesAndSorts() {
+        let entries = [
+            BodyPoint(date: day(2026, 7, 3), bodyWeight: 184, calories: nil, protein: 160),
+            BodyPoint(date: day(2026, 7, 1), bodyWeight: 185, calories: 2000, protein: nil),
+            BodyPoint(date: day(2026, 7, 2), bodyWeight: nil, calories: 2100, protein: 150),
+        ]
+        let weight = StatsCalculator.bodySeries(metric: .bodyWeight, in: entries, calendar: calendar)
+        XCTAssertEqual(weight.map(\.value), [185, 184]) // Jul 2 skipped, sorted
+
+        let calories = StatsCalculator.bodySeries(metric: .calories, in: entries, calendar: calendar)
+        XCTAssertEqual(calories.map(\.value), [2000, 2100]) // Jul 3 skipped
+    }
+
+    // MARK: - Range filter
+
+    func testFilterTrailingWindowInclusive() {
+        let points = [
+            SeriesPoint(date: day(2026, 6, 1), value: 1),
+            SeriesPoint(date: day(2026, 6, 11), value: 2), // exactly 30 days before Jul 10
+            SeriesPoint(date: day(2026, 7, 5), value: 3),
+            SeriesPoint(date: day(2026, 7, 10), value: 4),
+        ]
+        let filtered = StatsCalculator.filter(
+            points, range: .month1, now: day(2026, 7, 10), calendar: calendar
+        )
+        XCTAssertEqual(filtered.map(\.value), [2, 3, 4]) // Jun 1 dropped, Jun 11 kept
+    }
+
+    func testFilterAllKeepsEverything() {
+        let points = [
+            SeriesPoint(date: day(2020, 1, 1), value: 1),
+            SeriesPoint(date: day(2026, 7, 10), value: 2),
+        ]
+        let filtered = StatsCalculator.filter(
+            points, range: .all, now: day(2026, 7, 10), calendar: calendar
+        )
+        XCTAssertEqual(filtered.count, 2)
+    }
+
+    // MARK: - Summary
+
+    func testSummaryEmpty() {
+        let summary = StatsCalculator.summary(of: [])
+        XCTAssertNil(summary.latest)
+        XCTAssertNil(summary.best)
+        XCTAssertNil(summary.change)
+        XCTAssertEqual(summary.pointCount, 0)
+    }
+
+    func testSummaryLatestBestAndChange() {
+        let points = [
+            SeriesPoint(date: day(2026, 7, 1), value: 135),
+            SeriesPoint(date: day(2026, 7, 3), value: 155),
+            SeriesPoint(date: day(2026, 7, 5), value: 150),
+        ]
+        let summary = StatsCalculator.summary(of: points)
+        XCTAssertEqual(summary.latest, 150)
+        XCTAssertEqual(summary.best, 155)
+        XCTAssertEqual(summary.change, 15) // 150 − 135
+        XCTAssertEqual(summary.pointCount, 3)
     }
 }

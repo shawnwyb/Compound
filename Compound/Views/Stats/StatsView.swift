@@ -2,112 +2,104 @@ import SwiftUI
 import SwiftData
 import Charts
 
-/// Progress tab: totals, streaks, charts, muscle-group breakdown, and PRs.
+/// Progress tab: a focused progression explorer. Pick one metric — an exercise
+/// or a body measure — and see its trend as a single line chart, with a compact
+/// motivational header above it.
 struct StatsView: View {
     @Query(sort: \Workout.date, order: .reverse) private var workouts: [Workout]
+    @Query(sort: \DailyEntry.date) private var dailyEntries: [DailyEntry]
     @Query private var settingsRows: [Settings]
+
+    /// Which metric the chart is showing. `nil` until the user picks one — the
+    /// view resolves a sensible default (see `resolvedSelection`).
+    @State private var selection: MetricSelection?
+    @State private var exerciseMetric: ExerciseMetric = .topSetWeight
+    @State private var range: StatsRange = .month3
+
+    /// The chart's subject: a tracked exercise or a body metric.
+    private enum MetricSelection: Hashable {
+        case exercise(UUID)
+        case body(BodyMetric)
+    }
+
+    // MARK: - Derived data
+
+    private var snapshot: [StatsWorkout] { StatsSnapshot.from(workouts) }
+    private var tracked: [TrackedExercise] { StatsCalculator.trackedExercises(in: snapshot) }
+
+    private var bodyPoints: [BodyPoint] {
+        dailyEntries.map {
+            BodyPoint(date: $0.date, bodyWeight: $0.bodyWeight, calories: $0.calories, protein: $0.protein)
+        }
+    }
+
+    private var totals: StatsTotals { StatsCalculator.totals(in: snapshot) }
+    private var streak: StreakStats { StatsCalculator.streak(in: snapshot) }
 
     private var unitLabel: String {
         settingsRows.first?.units.abbreviation ?? UnitSystem.pounds.abbreviation
     }
 
-    private var snapshot: [StatsWorkout] {
-        StatsSnapshot.from(workouts)
+    private func bodyHasData(_ metric: BodyMetric) -> Bool {
+        !StatsCalculator.bodySeries(metric: metric, in: bodyPoints).isEmpty
     }
 
-    private var totals: StatsTotals {
-        StatsCalculator.totals(in: snapshot)
+    private var hasAnyData: Bool {
+        !tracked.isEmpty || BodyMetric.allCases.contains(where: bodyHasData)
     }
 
-    private var streak: StreakStats {
-        StatsCalculator.streak(in: snapshot)
+    /// The effective selection, defaulting to the most recent exercise (or the
+    /// first body metric that has data) and healing if a selected exercise no
+    /// longer exists.
+    private var resolvedSelection: MetricSelection {
+        if let selection {
+            if case .exercise(let id) = selection, !tracked.contains(where: { $0.id == id }) {
+                return defaultSelection
+            }
+            return selection
+        }
+        return defaultSelection
     }
 
-    private var groups: [GroupVolume] {
-        StatsCalculator.groupBreakdown(in: snapshot)
+    private var defaultSelection: MetricSelection {
+        if let first = tracked.first { return .exercise(first.id) }
+        if let metric = BodyMetric.allCases.first(where: bodyHasData) { return .body(metric) }
+        return .body(.bodyWeight)
     }
 
-    private var prs: [PersonalRecord] {
-        StatsCalculator.personalRecords(in: snapshot)
+    private var selectionBinding: Binding<MetricSelection> {
+        Binding(get: { resolvedSelection }, set: { selection = $0 })
     }
 
-    private var volumeSeries: [DailyVolume] {
-        StatsCalculator.volumePerDay(in: snapshot)
+    private var points: [SeriesPoint] {
+        let all: [SeriesPoint]
+        switch resolvedSelection {
+        case .exercise(let id):
+            all = StatsCalculator.exerciseSeries(exerciseID: id, metric: exerciseMetric, in: snapshot)
+        case .body(let metric):
+            all = StatsCalculator.bodySeries(metric: metric, in: bodyPoints)
+        }
+        return StatsCalculator.filter(all, range: range)
     }
 
-    private var workoutSeries: [DailyWorkoutCount] {
-        StatsCalculator.workoutsPerDay(in: snapshot)
-    }
+    // MARK: - Body
 
     var body: some View {
         NavigationStack {
             Group {
-                if workouts.isEmpty {
+                if !hasAnyData {
                     ContentUnavailableView {
-                        Label("No Stats Yet", systemImage: "chart.bar.fill")
+                        Label("No Stats Yet", systemImage: "chart.xyaxis.line")
                     } description: {
-                        Text("Finish a few workouts and your progress will show up here.")
+                        Text("Finish a few workouts, or log your bodyweight, and your progress will show up here.")
                     }
                 } else {
                     List {
-                        Section("Overview") {
-                            overviewGrid
+                        if !workouts.isEmpty {
+                            Section("Overview") { overviewGrid }
                         }
-
-                        if volumeSeries.count >= 1 {
-                            Section("Volume") {
-                                volumeChart
-                                    .frame(height: 180)
-                                    .padding(.vertical, 4)
-                            }
-                        }
-
-                        if workoutSeries.count >= 1 {
-                            Section("Workouts") {
-                                workoutsChart
-                                    .frame(height: 160)
-                                    .padding(.vertical, 4)
-                            }
-                        }
-
-                        if !groups.isEmpty {
-                            Section("Muscle Groups") {
-                                groupChart
-                                    .frame(height: max(CGFloat(groups.count) * 36, 80))
-                                    .padding(.vertical, 4)
-
-                                ForEach(groups) { group in
-                                    HStack {
-                                        Text(group.groupName)
-                                        Spacer()
-                                        Text(volumeLabel(group.volume))
-                                            .foregroundStyle(.secondary)
-                                        Text("·")
-                                            .foregroundStyle(.tertiary)
-                                        Text(setLabel(group.setCount))
-                                            .foregroundStyle(.secondary)
-                                    }
-                                    .font(.subheadline)
-                                }
-                            }
-                        }
-
-                        if !prs.isEmpty {
-                            Section("Personal Records") {
-                                ForEach(prs) { pr in
-                                    VStack(alignment: .leading, spacing: 2) {
-                                        Text(pr.exerciseName)
-                                            .font(.headline)
-                                        Text(
-                                            "Best \(weightLabel(pr.bestWeight)) · Est. 1RM \(weightLabel(pr.estimatedOneRepMax))"
-                                        )
-                                        .font(.subheadline)
-                                        .foregroundStyle(.secondary)
-                                    }
-                                    .padding(.vertical, 2)
-                                }
-                            }
-                        }
+                        Section("Progress") { chartSection }
+                        summarySection
                     }
                 }
             }
@@ -115,24 +107,14 @@ struct StatsView: View {
         }
     }
 
+    // MARK: - Overview header
+
     private var overviewGrid: some View {
-        VStack(spacing: 12) {
-            HStack(spacing: 12) {
-                statTile(title: "Workouts", value: "\(totals.workoutCount)")
-                statTile(title: "Volume", value: compactVolume(totals.totalVolume))
-            }
-            HStack(spacing: 12) {
-                statTile(title: "Sets", value: "\(totals.completedSetCount)")
-                statTile(title: "Days", value: "\(totals.trainingDayCount)")
-            }
-            HStack(spacing: 12) {
-                statTile(title: "Streak", value: "\(streak.current)d")
-                statTile(title: "Best streak", value: "\(streak.longest)d")
-            }
-            HStack(spacing: 12) {
-                statTile(title: "Last 7 days", value: "\(streak.daysLast7)")
-                statTile(title: "Last 30 days", value: "\(streak.daysLast30)")
-            }
+        HStack(spacing: 12) {
+            statTile(title: "Workouts", value: "\(totals.workoutCount)")
+            statTile(title: "Volume", value: compactVolume(totals.totalVolume))
+            statTile(title: "Streak", value: "\(streak.current)d")
+            statTile(title: "Last 7d", value: "\(streak.daysLast7)")
         }
         .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
         .listRowBackground(Color.clear)
@@ -146,93 +128,174 @@ struct StatsView: View {
             Text(value)
                 .font(.title3.weight(.semibold))
                 .monospacedDigit()
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(12)
         .background(.fill.tertiary, in: RoundedRectangle(cornerRadius: 12))
     }
 
-    private var volumeChart: some View {
-        Chart(volumeSeries) { point in
-            BarMark(
-                x: .value("Day", point.day, unit: .day),
-                y: .value("Volume", point.volume)
-            )
-            .foregroundStyle(.tint)
-        }
-        .chartXAxis {
-            AxisMarks(values: .automatic(desiredCount: 4)) { _ in
-                AxisGridLine()
-                AxisValueLabel(format: .dateTime.month(.abbreviated).day())
-            }
-        }
-        .chartYAxis {
-            AxisMarks(position: .leading) { value in
-                AxisGridLine()
-                AxisValueLabel {
-                    if let v = value.as(Double.self) {
-                        Text(compactVolume(v))
+    // MARK: - Chart
+
+    @ViewBuilder
+    private var chartSection: some View {
+        Picker("Metric", selection: selectionBinding) {
+            if !tracked.isEmpty {
+                Section("Exercises") {
+                    ForEach(tracked) { exercise in
+                        Text(exercise.name).tag(MetricSelection.exercise(exercise.id))
                     }
                 }
             }
-        }
-        .accessibilityLabel("Volume by day")
-    }
-
-    private var workoutsChart: some View {
-        Chart(workoutSeries) { point in
-            BarMark(
-                x: .value("Day", point.day, unit: .day),
-                y: .value("Workouts", point.count)
-            )
-            .foregroundStyle(.tint)
-        }
-        .chartXAxis {
-            AxisMarks(values: .automatic(desiredCount: 4)) { _ in
-                AxisGridLine()
-                AxisValueLabel(format: .dateTime.month(.abbreviated).day())
-            }
-        }
-        .chartYAxis {
-            AxisMarks(position: .leading, values: .automatic(desiredCount: 3))
-        }
-        .accessibilityLabel("Workouts by day")
-    }
-
-    private var groupChart: some View {
-        Chart(groups) { group in
-            BarMark(
-                x: .value("Volume", group.volume),
-                y: .value("Group", group.groupName)
-            )
-            .foregroundStyle(.tint)
-        }
-        .chartXAxis {
-            AxisMarks { value in
-                AxisGridLine()
-                AxisValueLabel {
-                    if let v = value.as(Double.self) {
-                        Text(compactVolume(v))
-                    }
+            Section("Body") {
+                ForEach(BodyMetric.allCases) { metric in
+                    Text(metric.label).tag(MetricSelection.body(metric))
                 }
             }
         }
-        .accessibilityLabel("Volume by muscle group")
-    }
+        .pickerStyle(.navigationLink)
 
-    private func volumeLabel(_ value: Double) -> String {
-        "\(compactVolume(value)) \(unitLabel)"
-    }
-
-    private func weightLabel(_ value: Double) -> String {
-        if value == floor(value) {
-            return "\(Int(value)) \(unitLabel)"
+        if case .exercise = resolvedSelection {
+            Picker("Measure", selection: $exerciseMetric) {
+                ForEach(ExerciseMetric.allCases) { metric in
+                    Text(metric.label).tag(metric)
+                }
+            }
+            .pickerStyle(.segmented)
+            .listRowSeparator(.hidden)
         }
-        return String(format: "%.1f \(unitLabel)", value)
+
+        Picker("Range", selection: $range) {
+            ForEach(StatsRange.allCases) { option in
+                Text(option.label).tag(option)
+            }
+        }
+        .pickerStyle(.segmented)
+        .listRowSeparator(.hidden)
+
+        chart
+            .frame(height: 220)
+            .padding(.vertical, 4)
     }
 
-    private func setLabel(_ count: Int) -> String {
-        count == 1 ? "1 set" : "\(count) sets"
+    @ViewBuilder
+    private var chart: some View {
+        if points.isEmpty {
+            ContentUnavailableView {
+                Label("No data in this range", systemImage: "calendar")
+            } description: {
+                Text("Try a longer range, or log more of this metric.")
+            }
+            .frame(maxWidth: .infinity)
+        } else {
+            Chart(points) { point in
+                LineMark(
+                    x: .value("Date", point.date),
+                    y: .value(seriesTitle, point.value)
+                )
+                .interpolationMethod(.monotone)
+                .foregroundStyle(.tint)
+
+                PointMark(
+                    x: .value("Date", point.date),
+                    y: .value(seriesTitle, point.value)
+                )
+                .foregroundStyle(.tint)
+                .symbolSize(points.count > 30 ? 12 : 40)
+            }
+            .chartXAxis {
+                AxisMarks(values: .automatic(desiredCount: 4)) { _ in
+                    AxisGridLine()
+                    AxisValueLabel(format: .dateTime.month(.abbreviated).day())
+                }
+            }
+            .chartYAxis {
+                AxisMarks(position: .leading) { value in
+                    AxisGridLine()
+                    AxisValueLabel {
+                        if let v = value.as(Double.self) {
+                            Text(axisValue(v))
+                        }
+                    }
+                }
+            }
+            .accessibilityLabel(seriesTitle)
+        }
+    }
+
+    // MARK: - Summary
+
+    @ViewBuilder
+    private var summarySection: some View {
+        let summary = StatsCalculator.summary(of: points)
+        if summary.pointCount > 0 {
+            Section("Summary") {
+                if let latest = summary.latest {
+                    summaryRow("Latest", valueLabel(latest))
+                }
+                if let best = summary.best {
+                    summaryRow("Best", valueLabel(best))
+                }
+                if let change = summary.change, summary.pointCount > 1 {
+                    summaryRow("Change", changeLabel(change))
+                }
+            }
+        }
+    }
+
+    private func summaryRow(_ title: String, _ value: String) -> some View {
+        HStack {
+            Text(title)
+            Spacer()
+            Text(value)
+                .foregroundStyle(.secondary)
+                .monospacedDigit()
+        }
+    }
+
+    // MARK: - Formatting
+
+    /// Human title for the currently selected series (used as the chart Y label).
+    private var seriesTitle: String {
+        switch resolvedSelection {
+        case .exercise: exerciseMetric.label
+        case .body(let metric): metric.label
+        }
+    }
+
+    /// Unit suffix for the selected series' values.
+    private var unitSuffix: String {
+        switch resolvedSelection {
+        case .exercise: unitLabel
+        case .body(.bodyWeight): unitLabel
+        case .body(.calories): "kcal"
+        case .body(.protein): "g"
+        }
+    }
+
+    /// Formats a raw value with its unit for summary rows.
+    private func valueLabel(_ value: Double) -> String {
+        "\(axisValue(value)) \(unitSuffix)"
+    }
+
+    /// Compact formatting for axis ticks and values.
+    private func axisValue(_ value: Double) -> String {
+        if case .exercise = resolvedSelection, exerciseMetric == .volume {
+            return compactVolume(value)
+        }
+        switch resolvedSelection {
+        case .body(.calories), .body(.protein):
+            return "\(Int(value.rounded()))"
+        default:
+            return value == floor(value) ? "\(Int(value))" : String(format: "%.1f", value)
+        }
+    }
+
+    private func changeLabel(_ change: Double) -> String {
+        let magnitude = axisValue(abs(change))
+        let sign = change > 0 ? "+" : (change < 0 ? "−" : "")
+        return "\(sign)\(magnitude) \(unitSuffix)"
     }
 
     private func compactVolume(_ value: Double) -> String {
@@ -247,7 +310,8 @@ struct StatsView: View {
 }
 
 #Preview {
-    let _ = PreviewData.sampleWorkout
-    StatsView()
+    let _ = PreviewData.sampleStatsHistory
+    let _ = PreviewData.sampleBody
+    return StatsView()
         .modelContainer(PreviewData.container)
 }

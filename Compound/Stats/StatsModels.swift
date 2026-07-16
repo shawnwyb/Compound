@@ -35,16 +35,6 @@ struct StatsTotals: Equatable {
     let trainingDayCount: Int
 }
 
-/// Volume + set count for one muscle group.
-struct GroupVolume: Equatable, Identifiable {
-    let groupID: UUID?
-    let groupName: String
-    let volume: Double
-    let setCount: Int
-
-    var id: String { groupID?.uuidString ?? groupName }
-}
-
 /// Current / longest streak plus recent frequency.
 struct StreakStats: Equatable {
     let current: Int
@@ -55,30 +45,104 @@ struct StreakStats: Equatable {
     let daysLast30: Int
 }
 
-/// Best lift for one exercise across history.
-struct PersonalRecord: Equatable, Identifiable {
-    let exerciseID: UUID
-    let exerciseName: String
-    let bestWeight: Double
-    let estimatedOneRepMax: Double
-    /// Date of the workout that produced `bestWeight`.
-    let bestWeightDate: Date
+// MARK: - Progression explorer
 
-    var id: UUID { exerciseID }
+/// One point in a progression line chart — a session (for an exercise) or a
+/// logged day (for a body metric).
+struct SeriesPoint: Equatable, Identifiable {
+    let date: Date
+    let value: Double
+
+    var id: Date { date }
 }
 
-/// Workouts (session count) on one calendar day — for frequency charts.
-struct DailyWorkoutCount: Equatable, Identifiable {
-    let day: Date
-    let count: Int
+/// Which numeric readout of an exercise's completed sets to plot over time.
+enum ExerciseMetric: String, CaseIterable, Identifiable {
+    /// Heaviest weight lifted in the session (the default).
+    case topSetWeight
+    /// Best Epley estimated 1RM across the session's sets.
+    case estimatedOneRepMax
+    /// Σ (reps × weight) over the session's completed sets.
+    case volume
 
-    var id: Date { day }
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .topSetWeight: "Top set"
+        case .estimatedOneRepMax: "Est. 1RM"
+        case .volume: "Volume"
+        }
+    }
 }
 
-/// Completed-set volume on one calendar day — for volume charts.
-struct DailyVolume: Equatable, Identifiable {
-    let day: Date
-    let volume: Double
+/// A body metric logged per calendar day on the Body tab.
+enum BodyMetric: String, CaseIterable, Identifiable {
+    case bodyWeight
+    case calories
+    case protein
 
-    var id: Date { day }
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .bodyWeight: "Bodyweight"
+        case .calories: "Calories"
+        case .protein: "Protein"
+        }
+    }
+}
+
+/// A day of body data reduced to plain values, so body series are testable
+/// without SwiftData.
+struct BodyPoint: Equatable {
+    let date: Date
+    let bodyWeight: Double?
+    let calories: Int?
+    let protein: Int?
+}
+
+/// An exercise that has appeared in history, for the metric picker.
+struct TrackedExercise: Equatable, Identifiable {
+    let id: UUID
+    let name: String
+    let lastPerformed: Date
+}
+
+/// Latest / best / net change across a series' visible range.
+struct SeriesSummary: Equatable {
+    let latest: Double?
+    let best: Double?
+    /// `latest − earliest` over the visible points; nil when empty.
+    let change: Double?
+    let pointCount: Int
+}
+
+/// Trailing-window options for the progression chart.
+enum StatsRange: String, CaseIterable, Identifiable {
+    case month1
+    case month3
+    case month6
+    case all
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .month1: "1M"
+        case .month3: "3M"
+        case .month6: "6M"
+        case .all: "All"
+        }
+    }
+
+    /// Length of the trailing window in days, or nil for all-time.
+    var days: Int? {
+        switch self {
+        case .month1: 30
+        case .month3: 90
+        case .month6: 180
+        case .all: nil
+        }
+    }
 }

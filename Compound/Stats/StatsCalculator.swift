@@ -36,39 +36,6 @@ enum StatsCalculator {
         )
     }
 
-    // MARK: - Per-group breakdown
-
-    /// Volume and completed-set counts grouped by muscle group, highest volume first.
-    static func groupBreakdown(in workouts: [StatsWorkout]) -> [GroupVolume] {
-        struct Acc {
-            var groupID: UUID?
-            var groupName: String
-            var volume: Double = 0
-            var setCount: Int = 0
-        }
-
-        var byKey: [String: Acc] = [:]
-        for workout in workouts {
-            for exercise in workout.exercises {
-                let key = exercise.groupID?.uuidString ?? "uncategorized:\(exercise.groupName)"
-                var acc = byKey[key] ?? Acc(groupID: exercise.groupID, groupName: exercise.groupName)
-                for set in exercise.sets where set.completed {
-                    acc.volume += Double(set.reps) * set.weight
-                    acc.setCount += 1
-                }
-                byKey[key] = acc
-            }
-        }
-
-        return byKey.values
-            .filter { $0.setCount > 0 || $0.volume > 0 }
-            .map { GroupVolume(groupID: $0.groupID, groupName: $0.groupName, volume: $0.volume, setCount: $0.setCount) }
-            .sorted {
-                if $0.volume != $1.volume { return $0.volume > $1.volume }
-                return $0.groupName.localizedCaseInsensitiveCompare($1.groupName) == .orderedAscending
-            }
-    }
-
     // MARK: - Streaks / frequency
 
     /// Current and longest consecutive training-day streaks, plus recent day counts.
@@ -116,78 +83,117 @@ enum StatsCalculator {
         return weight * (1 + Double(reps) / 30)
     }
 
-    /// Best completed weight and best estimated 1RM per exercise, sorted by 1RM desc.
-    static func personalRecords(in workouts: [StatsWorkout]) -> [PersonalRecord] {
+    // MARK: - Progression series
+
+    /// Exercises with at least one completed, weighted set — most recently
+    /// performed first (ties broken by name). Drives the metric picker.
+    static func trackedExercises(in workouts: [StatsWorkout]) -> [TrackedExercise] {
         struct Acc {
             var name: String
-            var bestWeight: Double = 0
-            var bestWeightDate: Date = .distantPast
-            var bestE1RM: Double = 0
+            var lastPerformed: Date
         }
 
-        var byExercise: [UUID: Acc] = [:]
+        var byID: [UUID: Acc] = [:]
         for workout in workouts {
             for exercise in workout.exercises {
-                var acc = byExercise[exercise.exerciseID] ?? Acc(name: exercise.exerciseName)
-                for set in exercise.sets where set.completed && set.reps > 0 && set.weight > 0 {
+                let hasWork = exercise.sets.contains { $0.completed && $0.weight > 0 && $0.reps > 0 }
+                guard hasWork else { continue }
+                if var acc = byID[exercise.exerciseID] {
                     acc.name = exercise.exerciseName
-                    if set.weight > acc.bestWeight {
-                        acc.bestWeight = set.weight
-                        acc.bestWeightDate = workout.date
-                    }
-                    let e1rm = estimatedOneRepMax(weight: set.weight, reps: set.reps)
-                    if e1rm > acc.bestE1RM {
-                        acc.bestE1RM = e1rm
-                    }
+                    acc.lastPerformed = max(acc.lastPerformed, workout.date)
+                    byID[exercise.exerciseID] = acc
+                } else {
+                    byID[exercise.exerciseID] = Acc(name: exercise.exerciseName, lastPerformed: workout.date)
                 }
-                byExercise[exercise.exerciseID] = acc
             }
         }
 
-        return byExercise.compactMap { id, acc in
-            guard acc.bestWeight > 0 else { return nil }
-            return PersonalRecord(
-                exerciseID: id,
-                exerciseName: acc.name,
-                bestWeight: acc.bestWeight,
-                estimatedOneRepMax: acc.bestE1RM,
-                bestWeightDate: acc.bestWeightDate
-            )
-        }
-        .sorted {
-            if $0.estimatedOneRepMax != $1.estimatedOneRepMax {
-                return $0.estimatedOneRepMax > $1.estimatedOneRepMax
+        return byID.map { TrackedExercise(id: $0.key, name: $0.value.name, lastPerformed: $0.value.lastPerformed) }
+            .sorted {
+                if $0.lastPerformed != $1.lastPerformed { return $0.lastPerformed > $1.lastPerformed }
+                return $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
             }
-            return $0.exerciseName.localizedCaseInsensitiveCompare($1.exerciseName) == .orderedAscending
-        }
     }
 
-    // MARK: - Time series
-
-    /// Session counts per calendar day, oldest → newest.
-    static func workoutsPerDay(
+    /// One point per training day for a single exercise's chosen metric,
+    /// oldest → newest. Only completed, weighted sets contribute. When an
+    /// exercise is performed more than once in a day, weight/1RM metrics keep the
+    /// best value and volume sums.
+    static func exerciseSeries(
+        exerciseID: UUID,
+        metric: ExerciseMetric,
         in workouts: [StatsWorkout],
         calendar: Calendar = .current
-    ) -> [DailyWorkoutCount] {
-        var counts: [Date: Int] = [:]
+    ) -> [SeriesPoint] {
+        var byDay: [Date: Double] = [:]
         for workout in workouts {
             let day = startOfDay(workout.date, calendar: calendar)
-            counts[day, default: 0] += 1
+            for exercise in workout.exercises where exercise.exerciseID == exerciseID {
+                let sets = exercise.sets.filter { $0.completed && $0.weight > 0 && $0.reps > 0 }
+                guard !sets.isEmpty else { continue }
+                switch metric {
+                case .topSetWeight:
+                    let best = sets.map(\.weight).max() ?? 0
+                    byDay[day] = max(byDay[day] ?? 0, best)
+                case .estimatedOneRepMax:
+                    let best = sets.map { estimatedOneRepMax(weight: $0.weight, reps: $0.reps) }.max() ?? 0
+                    byDay[day] = max(byDay[day] ?? 0, best)
+                case .volume:
+                    let total = sets.reduce(0) { $0 + Double($1.reps) * $1.weight }
+                    byDay[day, default: 0] += total
+                }
+            }
         }
-        return counts.keys.sorted().map { DailyWorkoutCount(day: $0, count: counts[$0]!) }
+        return byDay.keys.sorted().map { SeriesPoint(date: $0, value: byDay[$0]!) }
     }
 
-    /// Completed-set volume per calendar day, oldest → newest.
-    static func volumePerDay(
-        in workouts: [StatsWorkout],
+    /// One point per logged day for a body metric, oldest → newest. Days missing
+    /// the metric are skipped; a day logged more than once keeps the last value.
+    static func bodySeries(
+        metric: BodyMetric,
+        in entries: [BodyPoint],
         calendar: Calendar = .current
-    ) -> [DailyVolume] {
-        var volumes: [Date: Double] = [:]
-        for workout in workouts {
-            let day = startOfDay(workout.date, calendar: calendar)
-            volumes[day, default: 0] += volume(of: workout)
+    ) -> [SeriesPoint] {
+        var byDay: [Date: Double] = [:]
+        for entry in entries {
+            let value: Double?
+            switch metric {
+            case .bodyWeight: value = entry.bodyWeight
+            case .calories: value = entry.calories.map(Double.init)
+            case .protein: value = entry.protein.map(Double.init)
+            }
+            if let value {
+                byDay[startOfDay(entry.date, calendar: calendar)] = value
+            }
         }
-        return volumes.keys.sorted().map { DailyVolume(day: $0, volume: volumes[$0]!) }
+        return byDay.keys.sorted().map { SeriesPoint(date: $0, value: byDay[$0]!) }
+    }
+
+    /// Trailing-window filter: keeps points on/after `now − range.days` (inclusive
+    /// of both ends). Assumes `points` is sorted ascending.
+    static func filter(
+        _ points: [SeriesPoint],
+        range: StatsRange,
+        now: Date = .now,
+        calendar: Calendar = .current
+    ) -> [SeriesPoint] {
+        guard let days = range.days else { return points }
+        let today = startOfDay(now, calendar: calendar)
+        guard let start = calendar.date(byAdding: .day, value: -(days - 1), to: today) else { return points }
+        return points.filter { $0.date >= start }
+    }
+
+    /// Latest value, best value, and net change across a series.
+    static func summary(of points: [SeriesPoint]) -> SeriesSummary {
+        guard let first = points.first, let last = points.last else {
+            return SeriesSummary(latest: nil, best: nil, change: nil, pointCount: 0)
+        }
+        return SeriesSummary(
+            latest: last.value,
+            best: points.map(\.value).max(),
+            change: last.value - first.value,
+            pointCount: points.count
+        )
     }
 
     // MARK: - Helpers

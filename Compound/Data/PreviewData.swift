@@ -72,6 +72,54 @@ enum PreviewData {
         return workout
     }
 
+    /// Several weeks of workouts for the same exercises, so the Stats
+    /// progression chart has a real trend to draw.
+    @MainActor
+    static var sampleStatsHistory: Void {
+        let context = container.mainContext
+        let existing = (try? context.fetch(FetchDescriptor<Workout>())) ?? []
+        guard existing.count < 3 else { return }
+
+        let exercises = (try? context.fetch(FetchDescriptor<Exercise>())) ?? []
+        guard let primary = exercises.first else { return }
+        let secondary = exercises.dropFirst().first
+
+        let calendar = Calendar.current
+        // A steady, slightly noisy climb in top-set weight.
+        let weights: [Double] = [135, 140, 140, 145, 150, 150, 155, 160]
+        for (index, weight) in weights.enumerated() {
+            let date = calendar.date(
+                byAdding: .day, value: -((weights.count - index) * 4), to: .now
+            ) ?? .now
+            let workout = Workout(
+                routineName: "Push Day",
+                date: date,
+                startedAt: date,
+                durationSeconds: 3300
+            )
+            context.insert(workout)
+            for (position, exercise) in [primary, secondary].compactMap({ $0 }).enumerated() {
+                let performed = WorkoutExercise(
+                    exercise: exercise,
+                    exerciseName: exercise.name,
+                    position: position
+                )
+                context.insert(performed)
+                performed.workout = workout
+                for setNumber in 1...3 {
+                    let entry = SetEntry(
+                        setNumber: setNumber,
+                        reps: 8,
+                        weight: position == 0 ? weight : weight - 20,
+                        completed: true
+                    )
+                    context.insert(entry)
+                    entry.workoutExercise = performed
+                }
+            }
+        }
+    }
+
     /// A couple of weeks of body data for the Body tab preview.
     @MainActor
     static var sampleBody: Void {
