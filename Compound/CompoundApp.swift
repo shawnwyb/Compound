@@ -12,6 +12,9 @@ struct CompoundApp: App {
                 configurations: ModelConfiguration()
             )
             SeedData.seedIfNeeded(context: container.mainContext)
+            #if DEBUG
+            DemoData.handleLaunchArguments(context: container.mainContext)
+            #endif
         } catch {
             fatalError("Could not create ModelContainer: \(error)")
         }

@@ -12,6 +12,10 @@ struct ProfileView: View {
     @State private var showExporter = false
     @State private var exportError: String?
 
+    #if DEBUG
+    @State private var showWipeConfirm = false
+    #endif
+
     var body: some View {
         NavigationStack {
             Group {
@@ -86,6 +90,25 @@ struct ProfileView: View {
                 LabeledContent("App", value: "Compound")
                 LabeledContent("Version", value: appVersion)
             }
+
+            #if DEBUG
+            Section {
+                Button {
+                    DemoData.seed(context)
+                } label: {
+                    Label("Seed Demo Data", systemImage: "wand.and.stars")
+                }
+                Button(role: .destructive) {
+                    showWipeConfirm = true
+                } label: {
+                    Label("Wipe All Data", systemImage: "trash")
+                }
+            } header: {
+                Text("Developer")
+            } footer: {
+                Text("Debug builds only. Seed adds sample history if the log is empty; wipe clears everything.")
+            }
+            #endif
         }
         .sheet(isPresented: $showAddPreset) {
             AddRestPresetSheet(settings: settings)
@@ -109,6 +132,18 @@ struct ProfileView: View {
         } message: {
             Text(exportError ?? "")
         }
+        #if DEBUG
+        .confirmationDialog(
+            "Wipe all data?",
+            isPresented: $showWipeConfirm,
+            titleVisibility: .visible
+        ) {
+            Button("Wipe Everything", role: .destructive) { DemoData.wipe(context) }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Deletes all workouts, routines, and body entries. The exercise library reseeds on next launch.")
+        }
+        #endif
     }
 
     /// Converts all stored weights when the unit system changes.
