@@ -97,7 +97,7 @@ struct RoutineEditorView: View {
 }
 
 /// Row with the exercise name/group and a stepper for its target set count.
-private struct ExerciseEditRow: View {
+struct ExerciseEditRow: View {
     @Bindable var routineExercise: RoutineExercise
 
     var body: some View {
