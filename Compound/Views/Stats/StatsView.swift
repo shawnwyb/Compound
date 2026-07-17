@@ -2,23 +2,29 @@ import SwiftUI
 import SwiftData
 import Charts
 
-/// Progress tab: a focused progression explorer. Pick one metric — an exercise
-/// or a body measure — and see its trend as a single line chart, with a compact
-/// motivational header above it.
+/// Progress tab: a consistency snapshot plus two progression explorers — one for
+/// lifts (an exercise's top set / est. 1RM / volume over time) and one for body
+/// metrics (bodyweight / calories / protein). Each explorer shares the same
+/// picker → range → line chart → summary layout.
 struct StatsView: View {
     @Query(sort: \Workout.date, order: .reverse) private var workouts: [Workout]
     @Query(sort: \DailyEntry.date) private var dailyEntries: [DailyEntry]
     @Query private var settingsRows: [Settings]
 
-    /// Which metric the chart is showing. `nil` until the user picks one — the
-    /// view resolves a sensible default (see `resolvedSelection`).
-    @State private var selection: MetricSelection?
+    // Lifts explorer state.
+    @State private var exerciseSelection: UUID?
     @State private var exerciseMetric: ExerciseMetric = .topSetWeight
-    @State private var range: StatsRange = .month3
+    @State private var liftsRange: StatsRange = .month3
 
-    /// The chart's subject: a tracked exercise or a body metric.
-    private enum MetricSelection: Hashable {
-        case exercise(UUID)
+    // Body explorer state.
+    @State private var bodyMetricSelection: BodyMetric?
+    @State private var bodyRange: StatsRange = .month3
+
+    private let calendar = Calendar.current
+
+    /// What a chart/summary is currently plotting, so formatting can adapt.
+    private enum SeriesKind {
+        case exercise(ExerciseMetric)
         case body(BodyMetric)
     }
 
@@ -27,7 +33,7 @@ struct StatsView: View {
     private var snapshot: [StatsWorkout] { StatsSnapshot.from(workouts) }
     private var tracked: [TrackedExercise] { StatsCalculator.trackedExercises(in: snapshot) }
 
-    private var bodyPoints: [BodyPoint] {
+    private var bodyData: [BodyPoint] {
         dailyEntries.map {
             BodyPoint(date: $0.date, bodyWeight: $0.bodyWeight, calories: $0.calories, protein: $0.protein)
         }
@@ -41,45 +47,42 @@ struct StatsView: View {
     }
 
     private func bodyHasData(_ metric: BodyMetric) -> Bool {
-        !StatsCalculator.bodySeries(metric: metric, in: bodyPoints).isEmpty
+        !StatsCalculator.bodySeries(metric: metric, in: bodyData).isEmpty
     }
 
-    private var hasAnyData: Bool {
-        !tracked.isEmpty || BodyMetric.allCases.contains(where: bodyHasData)
+    private var hasAnyExercise: Bool { !tracked.isEmpty }
+    private var hasAnyBody: Bool { BodyMetric.allCases.contains(where: bodyHasData) }
+    private var hasAnyData: Bool { hasAnyExercise || hasAnyBody }
+
+    /// Selected exercise, defaulting to the most recent and healing if a chosen
+    /// exercise no longer exists.
+    private var resolvedExerciseID: UUID? {
+        if let id = exerciseSelection, tracked.contains(where: { $0.id == id }) { return id }
+        return tracked.first?.id
     }
 
-    /// The effective selection, defaulting to the most recent exercise (or the
-    /// first body metric that has data) and healing if a selected exercise no
-    /// longer exists.
-    private var resolvedSelection: MetricSelection {
-        if let selection {
-            if case .exercise(let id) = selection, !tracked.contains(where: { $0.id == id }) {
-                return defaultSelection
-            }
-            return selection
-        }
-        return defaultSelection
+    /// Selected body metric, defaulting to the first metric that has data.
+    private var resolvedBodyMetric: BodyMetric {
+        bodyMetricSelection ?? BodyMetric.allCases.first(where: bodyHasData) ?? .bodyWeight
     }
 
-    private var defaultSelection: MetricSelection {
-        if let first = tracked.first { return .exercise(first.id) }
-        if let metric = BodyMetric.allCases.first(where: bodyHasData) { return .body(metric) }
-        return .body(.bodyWeight)
+    private var liftsPoints: [SeriesPoint] {
+        guard let id = resolvedExerciseID else { return [] }
+        let all = StatsCalculator.exerciseSeries(exerciseID: id, metric: exerciseMetric, in: snapshot)
+        return StatsCalculator.filter(all, range: liftsRange)
     }
 
-    private var selectionBinding: Binding<MetricSelection> {
-        Binding(get: { resolvedSelection }, set: { selection = $0 })
+    private var bodyPoints: [SeriesPoint] {
+        let all = StatsCalculator.bodySeries(metric: resolvedBodyMetric, in: bodyData)
+        return StatsCalculator.filter(all, range: bodyRange)
     }
 
-    private var points: [SeriesPoint] {
-        let all: [SeriesPoint]
-        switch resolvedSelection {
-        case .exercise(let id):
-            all = StatsCalculator.exerciseSeries(exerciseID: id, metric: exerciseMetric, in: snapshot)
-        case .body(let metric):
-            all = StatsCalculator.bodySeries(metric: metric, in: bodyPoints)
-        }
-        return StatsCalculator.filter(all, range: range)
+    private var exerciseBinding: Binding<UUID?> {
+        Binding(get: { resolvedExerciseID }, set: { exerciseSelection = $0 })
+    }
+
+    private var bodyMetricBinding: Binding<BodyMetric> {
+        Binding(get: { resolvedBodyMetric }, set: { bodyMetricSelection = $0 })
     }
 
     // MARK: - Body
@@ -98,8 +101,12 @@ struct StatsView: View {
                         if !workouts.isEmpty {
                             Section("Overview") { overviewGrid }
                         }
-                        Section("Progress") { chartSection }
-                        summarySection
+                        if hasAnyExercise {
+                            Section("Lifts") { liftsSection }
+                        }
+                        if hasAnyBody {
+                            Section("Body") { bodySection }
+                        }
                     }
                 }
             }
@@ -107,7 +114,7 @@ struct StatsView: View {
         }
     }
 
-    // MARK: - Overview header
+    // MARK: - Overview
 
     private var overviewGrid: some View {
         HStack(spacing: 12) {
@@ -115,7 +122,7 @@ struct StatsView: View {
             statTile(title: "Streak", value: "\(streak.current)d")
             statTile(title: "Last 7d", value: "\(streak.daysLast7)")
         }
-        .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+        .listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 8, trailing: 0))
         .listRowBackground(Color.clear)
     }
 
@@ -135,51 +142,65 @@ struct StatsView: View {
         .background(.fill.tertiary, in: RoundedRectangle(cornerRadius: 12))
     }
 
-    // MARK: - Chart
+    // MARK: - Lifts explorer
 
     @ViewBuilder
-    private var chartSection: some View {
-        Picker("Metric", selection: selectionBinding) {
-            if !tracked.isEmpty {
-                Section("Exercises") {
-                    ForEach(tracked) { exercise in
-                        Text(exercise.name).tag(MetricSelection.exercise(exercise.id))
-                    }
-                }
-            }
-            Section("Body") {
-                ForEach(BodyMetric.allCases) { metric in
-                    Text(metric.label).tag(MetricSelection.body(metric))
-                }
+    private var liftsSection: some View {
+        Picker("Exercise", selection: exerciseBinding) {
+            ForEach(tracked) { exercise in
+                Text(exercise.name).tag(Optional(exercise.id))
             }
         }
         .pickerStyle(.navigationLink)
 
-        if case .exercise = resolvedSelection {
-            Picker("Measure", selection: $exerciseMetric) {
-                ForEach(ExerciseMetric.allCases) { metric in
-                    Text(metric.label).tag(metric)
-                }
+        Picker("Measure", selection: $exerciseMetric) {
+            ForEach(ExerciseMetric.allCases) { metric in
+                Text(metric.label).tag(metric)
             }
-            .pickerStyle(.segmented)
-            .listRowSeparator(.hidden)
         }
+        .pickerStyle(.segmented)
+        .listRowSeparator(.hidden)
 
-        Picker("Range", selection: $range) {
+        rangePicker($liftsRange)
+
+        let kind = SeriesKind.exercise(exerciseMetric)
+        chartView(points: liftsPoints, kind: kind)
+        summaryRows(points: liftsPoints, kind: kind)
+    }
+
+    // MARK: - Body explorer
+
+    @ViewBuilder
+    private var bodySection: some View {
+        Picker("Metric", selection: bodyMetricBinding) {
+            ForEach(BodyMetric.allCases) { metric in
+                Text(metric.label).tag(metric)
+            }
+        }
+        .pickerStyle(.segmented)
+        .listRowSeparator(.hidden)
+
+        rangePicker($bodyRange)
+
+        let kind = SeriesKind.body(resolvedBodyMetric)
+        chartView(points: bodyPoints, kind: kind)
+        summaryRows(points: bodyPoints, kind: kind)
+    }
+
+    private func rangePicker(_ selection: Binding<StatsRange>) -> some View {
+        Picker("Range", selection: selection) {
             ForEach(StatsRange.allCases) { option in
                 Text(option.label).tag(option)
             }
         }
         .pickerStyle(.segmented)
         .listRowSeparator(.hidden)
-
-        chart
-            .frame(height: 220)
-            .padding(.vertical, 4)
     }
 
+    // MARK: - Chart
+
     @ViewBuilder
-    private var chart: some View {
+    private func chartView(points: [SeriesPoint], kind: SeriesKind) -> some View {
         if points.isEmpty {
             ContentUnavailableView {
                 Label("No data in this range", systemImage: "calendar")
@@ -191,14 +212,14 @@ struct StatsView: View {
             Chart(points) { point in
                 LineMark(
                     x: .value("Date", point.date),
-                    y: .value(seriesTitle, point.value)
+                    y: .value(title(kind), point.value)
                 )
                 .interpolationMethod(.monotone)
                 .foregroundStyle(.tint)
 
                 PointMark(
                     x: .value("Date", point.date),
-                    y: .value(seriesTitle, point.value)
+                    y: .value(title(kind), point.value)
                 )
                 .foregroundStyle(.tint)
                 .symbolSize(points.count > 30 ? 12 : 40)
@@ -214,31 +235,31 @@ struct StatsView: View {
                     AxisGridLine()
                     AxisValueLabel {
                         if let v = value.as(Double.self) {
-                            Text(axisValue(v))
+                            Text(formatValue(v, kind: kind))
                         }
                     }
                 }
             }
-            .accessibilityLabel(seriesTitle)
+            .frame(height: 220)
+            .padding(.vertical, 4)
+            .accessibilityLabel(title(kind))
         }
     }
 
-    // MARK: - Summary
+    // MARK: - Summary rows
 
     @ViewBuilder
-    private var summarySection: some View {
+    private func summaryRows(points: [SeriesPoint], kind: SeriesKind) -> some View {
         let summary = StatsCalculator.summary(of: points)
         if summary.pointCount > 0 {
-            Section("Summary") {
-                if let latest = summary.latest {
-                    summaryRow("Latest", valueLabel(latest))
-                }
-                if let best = summary.best {
-                    summaryRow("Best", valueLabel(best))
-                }
-                if let change = summary.change, summary.pointCount > 1 {
-                    summaryRow("Change", changeLabel(change))
-                }
+            if let latest = summary.latest {
+                summaryRow("Latest", valueLabel(latest, kind: kind))
+            }
+            if let change = summary.change, summary.pointCount > 1 {
+                summaryRow("Change", changeLabel(change, kind: kind))
+            }
+            if summary.pointCount > 1, let rate = monthlyRate(points) {
+                summaryRow("Rate", "\(changeLabel(rate, kind: kind))/mo")
             }
         }
     }
@@ -253,19 +274,25 @@ struct StatsView: View {
         }
     }
 
+    /// Change per 30 days across the visible range; nil when it can't be computed.
+    private func monthlyRate(_ points: [SeriesPoint]) -> Double? {
+        guard let first = points.first, let last = points.last else { return nil }
+        let days = calendar.dateComponents([.day], from: first.date, to: last.date).day ?? 0
+        guard days > 0 else { return nil }
+        return (last.value - first.value) / Double(days) * 30
+    }
+
     // MARK: - Formatting
 
-    /// Human title for the currently selected series (used as the chart Y label).
-    private var seriesTitle: String {
-        switch resolvedSelection {
-        case .exercise: exerciseMetric.label
+    private func title(_ kind: SeriesKind) -> String {
+        switch kind {
+        case .exercise(let metric): metric.label
         case .body(let metric): metric.label
         }
     }
 
-    /// Unit suffix for the selected series' values.
-    private var unitSuffix: String {
-        switch resolvedSelection {
+    private func unitSuffix(_ kind: SeriesKind) -> String {
+        switch kind {
         case .exercise: unitLabel
         case .body(.bodyWeight): unitLabel
         case .body(.calories): "kcal"
@@ -273,17 +300,14 @@ struct StatsView: View {
         }
     }
 
-    /// Formats a raw value with its unit for summary rows.
-    private func valueLabel(_ value: Double) -> String {
-        "\(axisValue(value)) \(unitSuffix)"
+    private func valueLabel(_ value: Double, kind: SeriesKind) -> String {
+        "\(formatValue(value, kind: kind)) \(unitSuffix(kind))"
     }
 
-    /// Compact formatting for axis ticks and values.
-    private func axisValue(_ value: Double) -> String {
-        if case .exercise = resolvedSelection, exerciseMetric == .volume {
-            return compactVolume(value)
-        }
-        switch resolvedSelection {
+    /// Compact formatting for axis ticks and summary values.
+    private func formatValue(_ value: Double, kind: SeriesKind) -> String {
+        if case .exercise(.volume) = kind { return compactVolume(value) }
+        switch kind {
         case .body(.calories), .body(.protein):
             return "\(Int(value.rounded()))"
         default:
@@ -291,10 +315,10 @@ struct StatsView: View {
         }
     }
 
-    private func changeLabel(_ change: Double) -> String {
-        let magnitude = axisValue(abs(change))
+    private func changeLabel(_ change: Double, kind: SeriesKind) -> String {
+        let magnitude = formatValue(abs(change), kind: kind)
         let sign = change > 0 ? "+" : (change < 0 ? "−" : "")
-        return "\(sign)\(magnitude) \(unitSuffix)"
+        return "\(sign)\(magnitude) \(unitSuffix(kind))"
     }
 
     private func compactVolume(_ value: Double) -> String {
