@@ -30,9 +30,14 @@ struct LogView: View {
                         ForEach(sections, id: \.monthStart) { section in
                             Section {
                                 ForEach(section.items) { workout in
-                                    NavigationLink(value: workout) {
-                                        WorkoutRow(workout: workout)
-                                    }
+                                    WorkoutRow(workout: workout)
+                                        .listRowInsets(EdgeInsets(top: 5, leading: 0, bottom: 5, trailing: 0))
+                                        .listRowSeparator(.hidden)
+                                        .listRowBackground(Color.clear)
+                                        .background {
+                                            NavigationLink(value: workout) { EmptyView() }
+                                                .opacity(0)
+                                        }
                                 }
                                 .onDelete { offsets in
                                     delete(at: offsets, in: section.items)
@@ -99,24 +104,38 @@ private struct WorkoutRow: View {
     let workout: Workout
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(workout.routineName.isEmpty ? "Workout" : workout.routineName)
-                .font(.headline)
-            Text(subtitle)
-                .font(.subheadline)
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .firstTextBaseline) {
+                Text(workout.routineName.isEmpty ? "Workout" : workout.routineName)
+                    .font(.headline)
+                Spacer()
+                Text("\(minutes) min")
+                    .font(.subheadline)
+                    .monospacedDigit()
+                    .foregroundStyle(.secondary)
+            }
+
+            Text(workout.date.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day()))
+                .font(.caption)
                 .foregroundStyle(.secondary)
+
+            if !workout.orderedExercises.isEmpty {
+                VStack(alignment: .leading, spacing: 3) {
+                    ForEach(workout.orderedExercises) { exercise in
+                        Text("\(exercise.sets.count)× \(exercise.exerciseName)")
+                            .font(.subheadline)
+                    }
+                }
+            }
         }
-        .padding(.vertical, 2)
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.fill.tertiary, in: RoundedRectangle(cornerRadius: 14))
     }
 
-    private var subtitle: String {
-        let day = workout.date.formatted(.dateTime.month(.abbreviated).day())
-        let duration = TimeFormat.clock(workout.durationSeconds)
-        let exercises = workout.exercises.count
-        let exerciseLabel = exercises == 1 ? "1 exercise" : "\(exercises) exercises"
-        let sets = workout.completedSetCount
-        let setLabel = sets == 1 ? "1 set" : "\(sets) sets"
-        return "\(day) · \(duration) · \(exerciseLabel) · \(setLabel)"
+    /// Session length, rounded to whole minutes.
+    private var minutes: Int {
+        Int((Double(workout.durationSeconds) / 60).rounded())
     }
 }
 
