@@ -245,9 +245,7 @@ struct DailyEntryFields: View {
             }
 
             VStack(alignment: .leading, spacing: 6) {
-                Text("FOOD")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                Text("Food")
                 foodEditor
             }
             .padding(.vertical, 2)
