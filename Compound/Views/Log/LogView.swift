@@ -31,7 +31,7 @@ struct LogView: View {
                             Section {
                                 ForEach(section.items) { workout in
                                     WorkoutRow(workout: workout)
-                                        .listRowInsets(EdgeInsets(top: 5, leading: 0, bottom: 5, trailing: 0))
+                                        .listRowInsets(EdgeInsets(top: 5, leading: 16, bottom: 5, trailing: 16))
                                         .listRowSeparator(.hidden)
                                         .listRowBackground(Color.clear)
                                         .background {
@@ -51,11 +51,12 @@ struct LogView: View {
                                 }
                                 .font(.subheadline)
                                 .textCase(nil)
-                                .alignedSectionHeader()
+                                .fontWeight(.bold)
+                                .listRowInsets(EdgeInsets(top: 16, leading: 16, bottom: 8, trailing: 16))
                             }
                         }
                     }
-                    .contentMargins(.horizontal, 16, for: .scrollContent)
+                    .contentMargins(.horizontal, 0, for: .scrollContent)
                     .listSectionSpacing(.compact)
                 }
             }
