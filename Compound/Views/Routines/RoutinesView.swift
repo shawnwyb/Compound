@@ -32,6 +32,7 @@ struct RoutinesView: View {
                         .onMove(perform: move)
                     }
                     .contentMargins(.horizontal, 16, for: .scrollContent)
+                    .listSectionSpacing(.compact)
                 }
             }
             .navigationTitle("Routines")

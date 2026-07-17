@@ -61,6 +61,7 @@ struct WorkoutEditorView: View {
             }
         }
         .contentMargins(.horizontal, 16, for: .scrollContent)
+        .listSectionSpacing(.compact)
         .navigationTitle(isNew ? "New Workout" : "Edit Workout")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {

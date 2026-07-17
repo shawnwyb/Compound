@@ -81,6 +81,7 @@ struct BodyView: View {
                 }
             }
             .contentMargins(.horizontal, 16, for: .scrollContent)
+            .listSectionSpacing(.compact)
             .navigationTitle("Body")
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
