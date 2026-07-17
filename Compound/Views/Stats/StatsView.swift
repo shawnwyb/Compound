@@ -178,7 +178,7 @@ struct StatsView: View {
 
         let kind = SeriesKind.exercise(exerciseMetric)
         chartView(points: liftsPoints, kind: kind)
-        summaryRows(points: liftsPoints, kind: kind)
+        summaryRows(points: liftsPoints, kind: kind, range: liftsRange)
     }
 
     // MARK: - Body explorer
@@ -197,7 +197,7 @@ struct StatsView: View {
 
         let kind = SeriesKind.body(resolvedBodyMetric)
         chartView(points: bodyPoints, kind: kind)
-        summaryRows(points: bodyPoints, kind: kind)
+        summaryRows(points: bodyPoints, kind: kind, range: bodyRange)
     }
 
     private func rangePicker(_ selection: Binding<StatsRange>) -> some View {
@@ -262,14 +262,14 @@ struct StatsView: View {
     // MARK: - Summary rows
 
     @ViewBuilder
-    private func summaryRows(points: [SeriesPoint], kind: SeriesKind) -> some View {
+    private func summaryRows(points: [SeriesPoint], kind: SeriesKind, range: StatsRange) -> some View {
         let summary = StatsCalculator.summary(of: points)
         if summary.pointCount > 0 {
             if let latest = summary.latest {
                 summaryRow("Latest", valueLabel(latest, kind: kind))
             }
             if let change = summary.change, summary.pointCount > 1 {
-                summaryRow("Change", changeLabel(change, kind: kind))
+                summaryRow("Change (\(range.label))", changeLabel(change, kind: kind))
             }
             if summary.pointCount > 1, let rate = monthlyRate(points) {
                 summaryRow("Rate", "\(changeLabel(rate, kind: kind))/mo")
