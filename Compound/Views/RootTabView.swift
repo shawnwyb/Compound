@@ -22,7 +22,7 @@ struct RootTabView: View {
                 .tabItem { Label("Stats", systemImage: "chart.bar.fill") }
 
             BodyView()
-                .tabItem { Label("Body", systemImage: "scalemass.fill") }
+                .tabItem { Label("Body", systemImage: "figure") }
 
             ProfileView()
                 .tabItem { Label("Profile", systemImage: "person.crop.circle") }
