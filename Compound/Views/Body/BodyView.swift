@@ -45,6 +45,8 @@ struct BodyView: View {
                     if let current {
                         DailyEntryFields(entry: current, unit: unit)
                     }
+                } header: {
+                    Text("Entry").alignedSectionHeader()
                 }
 
                 if weightSeries.count >= 2 {
