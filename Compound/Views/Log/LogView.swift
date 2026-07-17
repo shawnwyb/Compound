@@ -117,7 +117,7 @@ private struct WorkoutRow: View {
             }
 
             Text(workout.date.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day()))
-                .font(.caption)
+                .font(.subheadline)
                 .foregroundStyle(.secondary)
 
             if !workout.orderedExercises.isEmpty {
