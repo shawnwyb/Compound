@@ -123,6 +123,7 @@ enum StatsRange: String, CaseIterable, Identifiable {
     case month1
     case month3
     case month6
+    case year1
     case all
 
     var id: String { rawValue }
@@ -132,6 +133,7 @@ enum StatsRange: String, CaseIterable, Identifiable {
         case .month1: "1M"
         case .month3: "3M"
         case .month6: "6M"
+        case .year1: "1Y"
         case .all: "All"
         }
     }
@@ -142,6 +144,7 @@ enum StatsRange: String, CaseIterable, Identifiable {
         case .month1: 30
         case .month3: 90
         case .month6: 180
+        case .year1: 365
         case .all: nil
         }
     }
