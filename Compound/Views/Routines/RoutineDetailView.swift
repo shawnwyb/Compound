@@ -28,8 +28,8 @@ struct RoutineDetailView: View {
                     PrefillOptionsView(routine: routine)
                 } label: {
                     LabeledContent(
-                        "Prefill Weights & Reps",
-                        value: routine.prefillFromRoutine ? "This routine" : "Last performance"
+                        "Starting Weights & Reps",
+                        value: routine.prefillFromRoutine ? "Routine" : "Latest"
                     )
                 }
             }
@@ -168,28 +168,40 @@ private struct PrefillOptionsView: View {
     var body: some View {
         List {
             Section {
-                optionRow("Last time each exercise was done", isOn: !routine.prefillFromRoutine) {
-                    routine.prefillFromRoutine = false
-                }
-                optionRow("Last time this routine was run", isOn: routine.prefillFromRoutine) {
-                    routine.prefillFromRoutine = true
-                }
-            } footer: {
-                Text("New sets start from your last logged weight and reps. “Last time this routine was run” uses your most recent session of this routine, falling back to each exercise’s last performance anywhere until you’ve run this routine at least once.")
-                    .alignedSectionFooter()
+                optionRow(
+                    title: "Latest",
+                    detail: "The most recent time you did each exercise, in any routine.",
+                    isOn: !routine.prefillFromRoutine
+                ) { routine.prefillFromRoutine = false }
+
+                optionRow(
+                    title: "Routine",
+                    detail: "The most recent time you ran this routine. Falls back to Latest until you’ve run it once.",
+                    isOn: routine.prefillFromRoutine
+                ) { routine.prefillFromRoutine = true }
             }
         }
         .contentMargins(.horizontal, 16, for: .scrollContent)
         .listSectionSpacing(.compact)
-        .navigationTitle("Prefill Weights & Reps")
+        .navigationTitle("Starting Weights & Reps")
         .navigationBarTitleDisplayMode(.inline)
     }
 
-    private func optionRow(_ title: String, isOn: Bool, action: @escaping () -> Void) -> some View {
+    private func optionRow(
+        title: String,
+        detail: String,
+        isOn: Bool,
+        action: @escaping () -> Void
+    ) -> some View {
         Button(action: action) {
-            HStack {
-                Text(title)
-                    .foregroundStyle(.primary)
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(title)
+                        .foregroundStyle(.primary)
+                    Text(detail)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
                 Spacer()
                 if isOn {
                     Image(systemName: "checkmark")
