@@ -48,7 +48,7 @@ struct BodyView: View {
                 }
 
                 if weightSeries.count >= 2 {
-                    Section("Weight") {
+                    Section {
                         weightChart
                             .frame(height: 180)
                             .padding(.vertical, 4)
@@ -56,6 +56,8 @@ struct BodyView: View {
                             LabeledContent("Latest", value: "\(formatWeight(latest)) \(unit)")
                                 .font(.subheadline)
                         }
+                    } header: {
+                        Text("Weight").alignedSectionHeader()
                     }
                 }
 
@@ -74,9 +76,11 @@ struct BodyView: View {
                         Text(section.title)
                             .font(.subheadline)
                             .textCase(nil)
+                            .alignedSectionHeader()
                     }
                 }
             }
+            .contentMargins(.horizontal, 16, for: .scrollContent)
             .navigationTitle("Body")
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {

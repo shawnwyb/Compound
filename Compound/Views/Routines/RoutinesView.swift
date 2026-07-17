@@ -31,6 +31,7 @@ struct RoutinesView: View {
                         .onDelete(perform: delete)
                         .onMove(perform: move)
                     }
+                    .contentMargins(.horizontal, 16, for: .scrollContent)
                 }
             }
             .navigationTitle("Routines")

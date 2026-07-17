@@ -99,15 +99,28 @@ struct StatsView: View {
                 } else {
                     List {
                         if !workouts.isEmpty {
-                            Section("Overview") { overviewGrid }
+                            Section {
+                                overviewGrid
+                            } header: {
+                                Text("Overview").alignedSectionHeader()
+                            }
                         }
                         if hasAnyExercise {
-                            Section("Lifts") { liftsSection }
+                            Section {
+                                liftsSection
+                            } header: {
+                                Text("Lifts").alignedSectionHeader()
+                            }
                         }
                         if hasAnyBody {
-                            Section("Body") { bodySection }
+                            Section {
+                                bodySection
+                            } header: {
+                                Text("Body").alignedSectionHeader()
+                            }
                         }
                     }
+                    .contentMargins(.horizontal, 16, for: .scrollContent)
                 }
             }
             .navigationTitle("Stats")
@@ -329,6 +342,20 @@ struct StatsView: View {
             return "\(Int(value))"
         }
         return String(format: "%.0f", value)
+    }
+}
+
+extension View {
+    /// Aligns a grouped section header's leading edge with its section card and the
+    /// navigation title, trimming iOS's default extra cell-content indentation.
+    /// Pair with `.contentMargins(.horizontal, 16, for: .scrollContent)` on the List.
+    func alignedSectionHeader() -> some View {
+        listRowInsets(EdgeInsets(top: 16, leading: 0, bottom: 8, trailing: 16))
+    }
+
+    /// Matching alignment for a section footer's explanatory text.
+    func alignedSectionFooter() -> some View {
+        listRowInsets(EdgeInsets(top: 6, leading: 0, bottom: 12, trailing: 16))
     }
 }
 

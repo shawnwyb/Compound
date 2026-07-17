@@ -16,11 +16,13 @@ struct RoutineEditorView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("Name") {
+                Section {
                     TextField("Routine name", text: $routine.name)
+                } header: {
+                    Text("Name").alignedSectionHeader()
                 }
 
-                Section("Exercises") {
+                Section {
                     ForEach(routine.orderedExercises) { item in
                         ExerciseEditRow(routineExercise: item)
                     }
@@ -32,8 +34,11 @@ struct RoutineEditorView: View {
                     } label: {
                         Label("Add Exercise", systemImage: "plus.circle.fill")
                     }
+                } header: {
+                    Text("Exercises").alignedSectionHeader()
                 }
             }
+            .contentMargins(.horizontal, 16, for: .scrollContent)
             .navigationTitle(isNew ? "New Routine" : "Edit Routine")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

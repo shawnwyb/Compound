@@ -31,10 +31,11 @@ struct WorkoutSessionView: View {
                                 .font(.subheadline)
                         }
                     } header: {
-                        Text(exercise.name)
+                        Text(exercise.name).alignedSectionHeader()
                     }
                 }
             }
+            .contentMargins(.horizontal, 16, for: .scrollContent)
             .navigationTitle(session.routineName)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

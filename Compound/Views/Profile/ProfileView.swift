@@ -48,17 +48,20 @@ struct ProfileView: View {
                     }
                 }
             } header: {
-                Text("Preferences")
+                Text("Preferences").alignedSectionHeader()
             } footer: {
                 Text("Changing units converts every saved weight to the new system.")
+                    .alignedSectionFooter()
             }
 
-            Section("Rest Timer") {
+            Section {
                 Stepper(value: $settings.defaultRestSeconds, in: 5...600, step: 5) {
                     Text("Default rest: \(TimeFormat.clock(settings.defaultRestSeconds))")
                 }
                 Toggle("Sound", isOn: $settings.restSoundEnabled)
                 Toggle("Vibration", isOn: $settings.restVibrationEnabled)
+            } header: {
+                Text("Rest Timer").alignedSectionHeader()
             }
 
             Section {
@@ -73,22 +76,27 @@ struct ProfileView: View {
                     Label("Add Preset", systemImage: "plus.circle.fill")
                 }
             } header: {
-                Text("Rest Presets")
+                Text("Rest Presets").alignedSectionHeader()
             } footer: {
                 Text("These appear in the workout rest timer. Swipe to delete.")
+                    .alignedSectionFooter()
             }
 
-            Section("Data") {
+            Section {
                 Button {
                     exportBackup()
                 } label: {
                     Label("Export Backup", systemImage: "square.and.arrow.up")
                 }
+            } header: {
+                Text("Data").alignedSectionHeader()
             }
 
-            Section("About") {
+            Section {
                 LabeledContent("App", value: "Compound")
                 LabeledContent("Version", value: appVersion)
+            } header: {
+                Text("About").alignedSectionHeader()
             }
 
             #if DEBUG
@@ -104,12 +112,14 @@ struct ProfileView: View {
                     Label("Wipe All Data", systemImage: "trash")
                 }
             } header: {
-                Text("Developer")
+                Text("Developer").alignedSectionHeader()
             } footer: {
                 Text("Debug builds only. Seed adds sample history if the log is empty; wipe clears everything.")
+                    .alignedSectionFooter()
             }
             #endif
         }
+        .contentMargins(.horizontal, 16, for: .scrollContent)
         .sheet(isPresented: $showAddPreset) {
             AddRestPresetSheet(settings: settings)
         }

@@ -19,7 +19,7 @@ struct WorkoutExercisePickerView: View {
                 ForEach(groups) { group in
                     let exercises = available(in: group)
                     if !exercises.isEmpty {
-                        Section(group.name) {
+                        Section {
                             ForEach(exercises) { exercise in
                                 Button {
                                     toggle(exercise)
@@ -35,10 +35,13 @@ struct WorkoutExercisePickerView: View {
                                     }
                                 }
                             }
+                        } header: {
+                            Text(group.name).alignedSectionHeader()
                         }
                     }
                 }
             }
+            .contentMargins(.horizontal, 16, for: .scrollContent)
             .searchable(text: $search, prompt: "Search exercises")
             .navigationTitle("Add Exercises")
             .navigationBarTitleDisplayMode(.inline)

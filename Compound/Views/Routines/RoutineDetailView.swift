@@ -15,7 +15,7 @@ struct RoutineDetailView: View {
                 Text("No exercises yet. Tap Edit to add some.")
                     .foregroundStyle(.secondary)
             } else {
-                Section("Exercises") {
+                Section {
                     ForEach(routine.orderedExercises) { item in
                         HStack {
                             VStack(alignment: .leading, spacing: 2) {
@@ -31,9 +31,12 @@ struct RoutineDetailView: View {
                                 .foregroundStyle(.secondary)
                         }
                     }
+                } header: {
+                    Text("Exercises").alignedSectionHeader()
                 }
             }
         }
+        .contentMargins(.horizontal, 16, for: .scrollContent)
         .navigationTitle(routine.name.isEmpty ? "Untitled" : routine.name)
         .safeAreaInset(edge: .bottom) {
             Button {

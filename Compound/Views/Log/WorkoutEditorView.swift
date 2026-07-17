@@ -14,7 +14,7 @@ struct WorkoutEditorView: View {
 
     var body: some View {
         Form {
-            Section("Details") {
+            Section {
                 TextField("Name", text: $workout.routineName)
                 DatePicker(
                     "Date",
@@ -22,6 +22,8 @@ struct WorkoutEditorView: View {
                     displayedComponents: [.date, .hourAndMinute]
                 )
                 LabeledContent("Duration", value: TimeFormat.clock(workout.durationSeconds))
+            } header: {
+                Text("Details").alignedSectionHeader()
             }
 
             ForEach(workout.orderedExercises) { exercise in
@@ -46,6 +48,7 @@ struct WorkoutEditorView: View {
                         .font(.caption)
                         .textCase(nil)
                     }
+                    .alignedSectionHeader()
                 }
             }
 
@@ -57,6 +60,7 @@ struct WorkoutEditorView: View {
                 }
             }
         }
+        .contentMargins(.horizontal, 16, for: .scrollContent)
         .navigationTitle(isNew ? "New Workout" : "Edit Workout")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {

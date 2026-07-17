@@ -46,9 +46,11 @@ struct LogView: View {
                                 }
                                 .font(.subheadline)
                                 .textCase(nil)
+                                .alignedSectionHeader()
                             }
                         }
                     }
+                    .contentMargins(.horizontal, 16, for: .scrollContent)
                 }
             }
             .navigationTitle("Log")
