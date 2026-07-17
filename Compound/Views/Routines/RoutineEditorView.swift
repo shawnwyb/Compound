@@ -24,7 +24,11 @@ struct RoutineEditorView: View {
 
                 Section {
                     ForEach(routine.orderedExercises) { item in
-                        ExerciseEditRow(routineExercise: item)
+                        NavigationLink {
+                            RoutineExerciseDetailView(routineExercise: item, routine: routine)
+                        } label: {
+                            RoutineExerciseSummaryRow(item: item)
+                        }
                     }
                     .onDelete(perform: deleteExercises)
                     .onMove(perform: moveExercises)
@@ -93,27 +97,6 @@ struct RoutineEditorView: View {
         for (index, item) in routine.orderedExercises.enumerated() {
             item.position = index
         }
-    }
-}
-
-/// Row with the exercise name/group and a stepper for its target set count.
-struct ExerciseEditRow: View {
-    @Bindable var routineExercise: RoutineExercise
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(routineExercise.exercise?.name ?? "Deleted exercise")
-            if let group = routineExercise.exercise?.group?.name {
-                Text(group)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            }
-            Stepper(value: $routineExercise.targetSets, in: 1...20) {
-                Text("\(routineExercise.targetSets) sets")
-                    .foregroundStyle(.secondary)
-            }
-        }
-        .padding(.vertical, 2)
     }
 }
 

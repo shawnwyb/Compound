@@ -36,7 +36,11 @@ struct RoutineDetailView: View {
 
             Section {
                 ForEach(routine.orderedExercises) { item in
-                    ExerciseEditRow(routineExercise: item)
+                    NavigationLink {
+                        RoutineExerciseDetailView(routineExercise: item, routine: routine)
+                    } label: {
+                        RoutineExerciseSummaryRow(item: item)
+                    }
                 }
                 .onDelete(perform: deleteExercises)
                 .onMove(perform: moveExercises)
