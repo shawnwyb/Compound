@@ -112,7 +112,6 @@ struct StatsView: View {
     private var overviewGrid: some View {
         HStack(spacing: 12) {
             statTile(title: "Workouts", value: "\(totals.workoutCount)")
-            statTile(title: "Volume", value: compactVolume(totals.totalVolume))
             statTile(title: "Streak", value: "\(streak.current)d")
             statTile(title: "Last 7d", value: "\(streak.daysLast7)")
         }
