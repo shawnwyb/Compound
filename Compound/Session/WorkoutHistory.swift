@@ -23,7 +23,8 @@ enum WorkoutHistory {
                             )
                         }
                     )
-                }
+                },
+                routineID: workout.routineID
             )
         }
     }
@@ -37,7 +38,13 @@ enum WorkoutHistory {
 
         let exercises = routine.orderedExercises.map { planned -> SessionExercise in
             let remembered = planned.exercise
-                .map { PrefillService.lastValues(for: $0.id, in: history) } ?? []
+                .map {
+                    PrefillService.lastValues(
+                        for: $0.id,
+                        in: history,
+                        preferringRoutine: routine.prefillFromRoutine ? routine.id : nil
+                    )
+                } ?? []
             let seeds = SessionBuilder.seededSets(targetSets: planned.targetSets, lastValues: remembered)
             let sets = seeds.enumerated().map { index, seed in
                 SessionSet(setNumber: index + 1, reps: seed.reps, weight: seed.weight)

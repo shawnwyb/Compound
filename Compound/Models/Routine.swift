@@ -9,15 +9,26 @@ final class Routine {
     var name: String
     var createdAt: Date
     var sortOrder: Int
+    /// When true, new sessions of this routine prefill from the last time *this
+    /// routine* was run, falling back to each exercise's last performance
+    /// anywhere until the routine has been run at least once.
+    var prefillFromRoutine: Bool = false
 
     @Relationship(deleteRule: .cascade, inverse: \RoutineExercise.routine)
     var exercises: [RoutineExercise] = []
 
-    init(id: UUID = UUID(), name: String, createdAt: Date = .now, sortOrder: Int = 0) {
+    init(
+        id: UUID = UUID(),
+        name: String,
+        createdAt: Date = .now,
+        sortOrder: Int = 0,
+        prefillFromRoutine: Bool = false
+    ) {
         self.id = id
         self.name = name
         self.createdAt = createdAt
         self.sortOrder = sortOrder
+        self.prefillFromRoutine = prefillFromRoutine
     }
 }
 

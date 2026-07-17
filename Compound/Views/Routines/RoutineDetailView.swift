@@ -24,6 +24,17 @@ struct RoutineDetailView: View {
             }
 
             Section {
+                NavigationLink {
+                    PrefillOptionsView(routine: routine)
+                } label: {
+                    LabeledContent(
+                        "Prefill Weights & Reps",
+                        value: routine.prefillFromRoutine ? "This routine" : "Last performance"
+                    )
+                }
+            }
+
+            Section {
                 ForEach(routine.orderedExercises) { item in
                     ExerciseEditRow(routineExercise: item)
                 }
@@ -146,6 +157,47 @@ struct RoutineDetailView: View {
     private func deleteRoutine() {
         context.delete(routine)
         dismiss()
+    }
+}
+
+/// Full-screen selector for a routine's prefill source, with the fallback rule
+/// spelled out in the footer.
+private struct PrefillOptionsView: View {
+    @Bindable var routine: Routine
+
+    var body: some View {
+        List {
+            Section {
+                optionRow("Last time each exercise was done", isOn: !routine.prefillFromRoutine) {
+                    routine.prefillFromRoutine = false
+                }
+                optionRow("Last time this routine was run", isOn: routine.prefillFromRoutine) {
+                    routine.prefillFromRoutine = true
+                }
+            } footer: {
+                Text("New sets start from your last logged weight and reps. “Last time this routine was run” uses your most recent session of this routine, falling back to each exercise’s last performance anywhere until you’ve run this routine at least once.")
+                    .alignedSectionFooter()
+            }
+        }
+        .contentMargins(.horizontal, 16, for: .scrollContent)
+        .listSectionSpacing(.compact)
+        .navigationTitle("Prefill Weights & Reps")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private func optionRow(_ title: String, isOn: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack {
+                Text(title)
+                    .foregroundStyle(.primary)
+                Spacer()
+                if isOn {
+                    Image(systemName: "checkmark")
+                        .foregroundStyle(.tint)
+                        .fontWeight(.semibold)
+                }
+            }
+        }
     }
 }
 

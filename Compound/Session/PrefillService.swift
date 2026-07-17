@@ -21,6 +21,8 @@ struct HistoricalExercise: Equatable {
 struct HistoricalWorkout: Equatable {
     let date: Date
     let exercises: [HistoricalExercise]
+    /// The routine this session came from, when known — used to scope prefill.
+    var routineID: UUID? = nil
 }
 
 /// Remembered values used to seed one set when starting a workout.
@@ -52,5 +54,22 @@ enum PrefillService {
             }
         }
         return []
+    }
+
+    /// Routine-aware prefill: prefer the most recent run of `routineID` that has
+    /// real data for `exerciseID`, and fall back to the exercise's last
+    /// performance anywhere when this routine has no qualifying history yet.
+    /// Passing `nil` behaves exactly like `lastValues(for:in:)`.
+    static func lastValues(
+        for exerciseID: UUID,
+        in history: [HistoricalWorkout],
+        preferringRoutine routineID: UUID?
+    ) -> [PrefilledSet] {
+        if let routineID {
+            let scoped = history.filter { $0.routineID == routineID }
+            let scopedValues = lastValues(for: exerciseID, in: scoped)
+            if !scopedValues.isEmpty { return scopedValues }
+        }
+        return lastValues(for: exerciseID, in: history)
     }
 }
