@@ -7,9 +7,9 @@ import Charts
 ///
 /// The screen always shows one *selected day*, edited inline at the top. The
 /// common path is: open the app, paste your food, type the calorie estimate —
-/// no navigation. Step between days with the chevrons, jump to any date with
-/// the toolbar date picker, or tap a history row; when you're off today, a
-/// "Today" button snaps you back.
+/// no navigation. Step between days with the chevrons, tap the date to jump to
+/// any day, or tap a history row; when you're off today, a "Today" button snaps
+/// you back.
 struct BodyView: View {
     @Environment(\.modelContext) private var context
     @Query(sort: \DailyEntry.date, order: .reverse) private var entries: [DailyEntry]
@@ -18,6 +18,7 @@ struct BodyView: View {
     private let nav = DayNavigator()
     @State private var selectedDay = Calendar.current.startOfDay(for: .now)
     @State private var current: DailyEntry?
+    @State private var showDayPicker = false
 
     private var unit: String {
         settingsRows.first?.units.abbreviation ?? UnitSystem.pounds.abbreviation
@@ -91,17 +92,11 @@ struct BodyView: View {
                         Button("Today") { selectedDay = today }
                     }
                 }
-                ToolbarItem(placement: .topBarTrailing) {
-                    DatePicker(
-                        "Select day",
-                        selection: dayPickerBinding,
-                        in: ...today,
-                        displayedComponents: .date
-                    )
-                    .labelsHidden()
-                }
             }
-            .onChange(of: selectedDay) { _, _ in loadDay() }
+            .onChange(of: selectedDay) { _, _ in
+                loadDay()
+                showDayPicker = false
+            }
             .task { loadDay() }
             .onAppear(perform: cleanupEmpties)
         }
@@ -121,12 +116,33 @@ struct BodyView: View {
 
             Spacer()
 
-            VStack(spacing: 2) {
-                Text(isToday ? "Today" : selectedDay.formatted(.dateTime.weekday(.wide)))
-                    .font(.headline)
-                Text(selectedDay.formatted(.dateTime.month(.abbreviated).day().year()))
+            Button {
+                showDayPicker = true
+            } label: {
+                VStack(spacing: 2) {
+                    Text(isToday ? "Today" : selectedDay.formatted(.dateTime.weekday(.wide)))
+                        .font(.headline)
+                    HStack(spacing: 3) {
+                        Text(selectedDay.formatted(.dateTime.month(.abbreviated).day().year()))
+                        Image(systemName: "chevron.down")
+                            .font(.caption2)
+                    }
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
+                }
+            }
+            .buttonStyle(.plain)
+            .sheet(isPresented: $showDayPicker) {
+                DatePicker(
+                    "Select day",
+                    selection: dayPickerBinding,
+                    in: ...today,
+                    displayedComponents: .date
+                )
+                .datePickerStyle(.graphical)
+                .labelsHidden()
+                .padding()
+                .presentationDetents([.medium])
             }
 
             Spacer()
