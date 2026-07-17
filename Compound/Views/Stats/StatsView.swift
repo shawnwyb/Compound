@@ -143,7 +143,7 @@ struct StatsView: View {
     private func statTile(title: String, value: String) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(title)
-                .font(.caption)
+                .font(.subheadline)
                 .foregroundStyle(.secondary)
             Text(value)
                 .font(.title3.weight(.semibold))

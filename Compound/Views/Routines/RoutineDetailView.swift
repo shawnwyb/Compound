@@ -22,7 +22,7 @@ struct RoutineDetailView: View {
                                 Text(item.exercise?.name ?? "Deleted exercise")
                                 if let group = item.exercise?.group?.name {
                                     Text(group)
-                                        .font(.caption)
+                                        .font(.subheadline)
                                         .foregroundStyle(.secondary)
                                 }
                             }

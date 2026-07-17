@@ -105,7 +105,7 @@ private struct ExerciseEditRow: View {
             Text(routineExercise.exercise?.name ?? "Deleted exercise")
             if let group = routineExercise.exercise?.group?.name {
                 Text(group)
-                    .font(.caption)
+                    .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
             Stepper(value: $routineExercise.targetSets, in: 1...20) {
