@@ -209,7 +209,9 @@ private struct PrefillOptionsView: View {
                         .fontWeight(.semibold)
                 }
             }
+            .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
     }
 }
 
