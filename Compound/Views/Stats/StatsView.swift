@@ -350,7 +350,8 @@ extension View {
     /// navigation title, trimming iOS's default extra cell-content indentation.
     /// Pair with `.contentMargins(.horizontal, 16, for: .scrollContent)` on the List.
     func alignedSectionHeader() -> some View {
-        listRowInsets(EdgeInsets(top: 16, leading: 0, bottom: 8, trailing: 16))
+        fontWeight(.bold)
+            .listRowInsets(EdgeInsets(top: 16, leading: 0, bottom: 8, trailing: 16))
     }
 
     /// Matching alignment for a section footer's explanatory text.
