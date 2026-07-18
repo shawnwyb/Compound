@@ -232,39 +232,56 @@ private struct WorkoutSetRow: View {
     let unit: String
 
     var body: some View {
-        HStack(spacing: 12) {
-            Text("\(set.setNumber)")
-                .font(.headline)
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 12) {
+                Text("\(set.setNumber)")
+                    .font(.headline)
+                    .foregroundStyle(.secondary)
+                    .frame(width: 24, alignment: .leading)
+
+                Spacer()
+
+                field(
+                    TextField("0", value: $set.weight, format: .number)
+                        .keyboardType(.decimalPad),
+                    isPlaceholder: set.weight == 0,
+                    unit: unit,
+                    width: 64
+                )
+
+                Spacer()
+
+                field(
+                    TextField("0", value: $set.reps, format: .number)
+                        .keyboardType(.numberPad),
+                    isPlaceholder: set.reps == 0,
+                    unit: "reps",
+                    width: 56
+                )
+            }
+
+            TextField("Add note", text: $set.note, axis: .vertical)
+                .font(.subheadline)
                 .foregroundStyle(.secondary)
-                .frame(width: 24)
-
-            numberField(value: $set.weight, unit: unit, width: 66)
-            intField(value: $set.reps, unit: "reps", width: 58)
-
-            Spacer()
         }
-        .padding(.vertical, 2)
+        .padding(.vertical, 4)
     }
 
-    private func numberField(value: Binding<Double>, unit: String, width: CGFloat) -> some View {
+    private func field(
+        _ textField: some View,
+        isPlaceholder: Bool,
+        unit: String,
+        width: CGFloat
+    ) -> some View {
         HStack(spacing: 4) {
-            TextField("0", value: value, format: .number)
-                .keyboardType(.decimalPad)
+            textField
                 .multilineTextAlignment(.center)
-                .textFieldStyle(.roundedBorder)
+                .monospacedDigit()
+                .foregroundStyle(isPlaceholder ? .secondary : .primary)
                 .frame(width: width)
-            Text(unit).font(.caption).foregroundStyle(.secondary)
-        }
-    }
-
-    private func intField(value: Binding<Int>, unit: String, width: CGFloat) -> some View {
-        HStack(spacing: 4) {
-            TextField("0", value: value, format: .number)
-                .keyboardType(.numberPad)
-                .multilineTextAlignment(.center)
-                .textFieldStyle(.roundedBorder)
-                .frame(width: width)
-            Text(unit).font(.caption).foregroundStyle(.secondary)
+            Text(unit)
+                .font(.caption)
+                .foregroundStyle(.secondary)
         }
     }
 }

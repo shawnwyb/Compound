@@ -9,6 +9,8 @@ final class SetEntry {
     var reps: Int
     var weight: Double
     var completed: Bool
+    /// Freeform per-set note.
+    var note: String = ""
     /// Rest taken after this set, if tracked.
     var restSeconds: Int?
 
@@ -20,6 +22,7 @@ final class SetEntry {
         reps: Int = 0,
         weight: Double = 0,
         completed: Bool = false,
+        note: String = "",
         restSeconds: Int? = nil
     ) {
         self.id = id
@@ -27,6 +30,7 @@ final class SetEntry {
         self.reps = reps
         self.weight = weight
         self.completed = completed
+        self.note = note
         self.restSeconds = restSeconds
     }
 }
