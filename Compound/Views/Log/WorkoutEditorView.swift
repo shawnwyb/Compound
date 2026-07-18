@@ -10,18 +10,27 @@ struct WorkoutEditorView: View {
     @Bindable var workout: Workout
     let isNew: Bool
 
-    @State private var showPicker = false
+    @State private var sheet: EditorSheet?
+
+    private enum EditorSheet: Identifiable {
+        case addExercise
+        case replace(WorkoutExercise)
+
+        var id: String {
+            switch self {
+            case .addExercise: "add"
+            case .replace(let exercise): exercise.id.uuidString
+            }
+        }
+    }
 
     var body: some View {
         Form {
             Section {
                 TextField("Name", text: $workout.routineName)
-                DatePicker(
-                    "Date",
-                    selection: $workout.date,
-                    displayedComponents: [.date, .hourAndMinute]
-                )
-                LabeledContent("Duration", value: TimeFormat.clock(workout.durationSeconds))
+                DatePicker("Start time", selection: startBinding, displayedComponents: [.date, .hourAndMinute])
+                DatePicker("End time", selection: endBinding, displayedComponents: [.date, .hourAndMinute])
+                TextField("Notes", text: $workout.notes, axis: .vertical)
             } header: {
                 Text("Details").alignedSectionHeader()
             }
@@ -29,7 +38,11 @@ struct WorkoutEditorView: View {
             ForEach(workout.orderedExercises) { exercise in
                 Section {
                     ForEach(exercise.orderedSets) { set in
-                        WorkoutSetRow(set: set)
+                        WorkoutSetRow(
+                            set: set,
+                            onDuplicate: { count in duplicateSet(set, times: count, in: exercise) },
+                            onDelete: { deleteSet(set, in: exercise) }
+                        )
                     }
                     .onDelete { deleteSets(at: $0, in: exercise) }
 
@@ -42,10 +55,36 @@ struct WorkoutEditorView: View {
                     HStack {
                         Text(exercise.exerciseName)
                         Spacer()
-                        Button("Remove", role: .destructive) {
-                            removeExercise(exercise)
+                        Menu {
+                            Button {
+                                moveExercise(exercise, by: -1)
+                            } label: {
+                                Label("Move Up", systemImage: "arrow.up")
+                            }
+                            .disabled(isFirst(exercise))
+
+                            Button {
+                                moveExercise(exercise, by: 1)
+                            } label: {
+                                Label("Move Down", systemImage: "arrow.down")
+                            }
+                            .disabled(isLast(exercise))
+
+                            Button {
+                                sheet = .replace(exercise)
+                            } label: {
+                                Label("Replace", systemImage: "arrow.triangle.2.circlepath")
+                            }
+
+                            Button(role: .destructive) {
+                                removeExercise(exercise)
+                            } label: {
+                                Label("Delete", systemImage: "trash")
+                            }
+                        } label: {
+                            Image(systemName: "ellipsis")
+                                .foregroundStyle(.secondary)
                         }
-                        .font(.caption)
                         .textCase(nil)
                     }
                     .alignedSectionHeader()
@@ -54,7 +93,7 @@ struct WorkoutEditorView: View {
 
             Section {
                 Button {
-                    showPicker = true
+                    sheet = .addExercise
                 } label: {
                     Label("Add Exercise", systemImage: "plus.circle.fill")
                 }
@@ -70,22 +109,58 @@ struct WorkoutEditorView: View {
                     Button("Cancel") { cancel() }
                 }
             }
-            ToolbarItemGroup(placement: .topBarTrailing) {
-                EditButton()
+            ToolbarItem(placement: .topBarTrailing) {
                 Button("Done") { done() }
                     .fontWeight(.semibold)
             }
         }
-        .sheet(isPresented: $showPicker) {
-            WorkoutExercisePickerView(workout: workout)
+        .sheet(item: $sheet) { active in
+            switch active {
+            case .addExercise:
+                WorkoutExercisePickerView(workout: workout)
+            case .replace(let exercise):
+                SingleExercisePicker(
+                    title: "Replace Exercise",
+                    blockedIDs: blockedIDs(excluding: exercise),
+                    currentID: exercise.exercise?.id
+                ) { chosen in
+                    exercise.exercise = chosen
+                    exercise.exerciseName = chosen.name
+                }
+            }
         }
         .interactiveDismissDisabled(isNew)
     }
 
+    // MARK: - Start / end time bindings
+
+    /// Editing the start keeps the end fixed and recomputes the duration.
+    private var startBinding: Binding<Date> {
+        Binding(
+            get: { workout.startedAt },
+            set: { newStart in
+                let end = workout.startedAt.addingTimeInterval(Double(workout.durationSeconds))
+                workout.startedAt = newStart
+                workout.date = newStart
+                workout.durationSeconds = max(0, Int(end.timeIntervalSince(newStart)))
+            }
+        )
+    }
+
+    /// Editing the end keeps the start fixed and recomputes the duration.
+    private var endBinding: Binding<Date> {
+        Binding(
+            get: { workout.startedAt.addingTimeInterval(Double(workout.durationSeconds)) },
+            set: { newEnd in
+                workout.durationSeconds = max(0, Int(newEnd.timeIntervalSince(workout.startedAt)))
+            }
+        )
+    }
+
+    // MARK: - Save / cancel
+
     private func cancel() {
-        if isNew {
-            context.delete(workout)
-        }
+        if isNew { context.delete(workout) }
         dismiss()
     }
 
@@ -93,24 +168,40 @@ struct WorkoutEditorView: View {
         if workout.routineName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             workout.routineName = "Workout"
         }
-        if !isNew {
-            workout.editedAt = .now
+        // A set with logged reps or weight counts as performed — no manual toggle.
+        for exercise in workout.exercises {
+            for set in exercise.sets {
+                set.completed = set.reps > 0 || set.weight > 0
+            }
         }
+        if !isNew { workout.editedAt = .now }
         try? context.save()
         dismiss()
     }
 
+    // MARK: - Sets
+
     private func addSet(to exercise: WorkoutExercise) {
-        let next = (exercise.sets.map(\.setNumber).max() ?? 0) + 1
         let last = exercise.orderedSets.last
-        let entry = SetEntry(
-            setNumber: next,
-            reps: last?.reps ?? 0,
-            weight: last?.weight ?? 0,
-            completed: false
-        )
+        insertSet(reps: last?.reps ?? 0, weight: last?.weight ?? 0, completed: false, in: exercise)
+    }
+
+    private func duplicateSet(_ set: SetEntry, times: Int, in exercise: WorkoutExercise) {
+        for _ in 0..<max(1, times) {
+            insertSet(reps: set.reps, weight: set.weight, completed: set.completed, in: exercise)
+        }
+    }
+
+    private func insertSet(reps: Int, weight: Double, completed: Bool, in exercise: WorkoutExercise) {
+        let next = (exercise.sets.map(\.setNumber).max() ?? 0) + 1
+        let entry = SetEntry(setNumber: next, reps: reps, weight: weight, completed: completed)
         context.insert(entry)
         entry.workoutExercise = exercise
+    }
+
+    private func deleteSet(_ set: SetEntry, in exercise: WorkoutExercise) {
+        context.delete(set)
+        renumberSets(in: exercise)
     }
 
     private func deleteSets(at offsets: IndexSet, in exercise: WorkoutExercise) {
@@ -127,9 +218,21 @@ struct WorkoutEditorView: View {
         }
     }
 
+    // MARK: - Exercises
+
     private func removeExercise(_ exercise: WorkoutExercise) {
         context.delete(exercise)
         reindexExercises()
+    }
+
+    private func moveExercise(_ exercise: WorkoutExercise, by delta: Int) {
+        let ordered = workout.orderedExercises
+        guard let i = ordered.firstIndex(where: { $0.id == exercise.id }) else { return }
+        let j = i + delta
+        guard ordered.indices.contains(j) else { return }
+        let tmp = ordered[i].position
+        ordered[i].position = ordered[j].position
+        ordered[j].position = tmp
     }
 
     private func reindexExercises() {
@@ -137,12 +240,28 @@ struct WorkoutEditorView: View {
             exercise.position = index
         }
     }
+
+    private func isFirst(_ exercise: WorkoutExercise) -> Bool {
+        workout.orderedExercises.first?.id == exercise.id
+    }
+
+    private func isLast(_ exercise: WorkoutExercise) -> Bool {
+        workout.orderedExercises.last?.id == exercise.id
+    }
+
+    private func blockedIDs(excluding exercise: WorkoutExercise) -> Set<UUID> {
+        var ids = Set(workout.exercises.compactMap { $0.exercise?.id })
+        if let currentID = exercise.exercise?.id { ids.remove(currentID) }
+        return ids
+    }
 }
 
-/// One editable set row: number, weight, reps, completion.
+/// One editable set row: number, weight, reps, and a menu to duplicate or delete.
 private struct WorkoutSetRow: View {
     @Query private var settingsRows: [Settings]
     @Bindable var set: SetEntry
+    let onDuplicate: (Int) -> Void
+    let onDelete: () -> Void
 
     private var unit: String {
         settingsRows.first?.units.abbreviation ?? UnitSystem.pounds.abbreviation
@@ -160,15 +279,32 @@ private struct WorkoutSetRow: View {
 
             Spacer()
 
-            Button {
-                set.completed.toggle()
+            Menu {
+                Button {
+                    onDuplicate(1)
+                } label: {
+                    Label("Duplicate", systemImage: "plus.square.on.square")
+                }
+                Menu {
+                    ForEach([2, 3, 4, 5], id: \.self) { count in
+                        Button("\(count) copies") { onDuplicate(count) }
+                    }
+                } label: {
+                    Label("Add Copies", systemImage: "square.on.square")
+                }
+                Button(role: .destructive) {
+                    onDelete()
+                } label: {
+                    Label("Delete", systemImage: "trash")
+                }
             } label: {
-                Image(systemName: set.completed ? "checkmark.circle.fill" : "circle")
-                    .font(.title2)
-                    .foregroundStyle(set.completed ? .green : .secondary)
+                Image(systemName: "ellipsis")
+                    .font(.title3)
+                    .foregroundStyle(.secondary)
+                    .frame(width: 30, height: 44)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .accessibilityLabel(set.completed ? "Mark incomplete" : "Mark complete")
         }
         .padding(.vertical, 2)
     }

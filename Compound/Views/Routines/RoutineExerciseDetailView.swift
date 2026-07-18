@@ -53,12 +53,6 @@ struct RoutineExerciseDetailView: View {
                             let digits = String(newValue.filter(\.isNumber).prefix(2))
                             if digits != newValue { setsText = digits }
                         }
-                        .toolbar {
-                            ToolbarItemGroup(placement: .keyboard) {
-                                Spacer()
-                                Button("Done") { setsFocused = false }
-                            }
-                        }
                     Stepper("Sets", value: $routineExercise.targetSets, in: 1...20)
                         .labelsHidden()
                 }
@@ -67,24 +61,25 @@ struct RoutineExerciseDetailView: View {
             }
 
             Section {
-                Button {
+                Button("Replace Exercise") {
                     showReplace = true
-                } label: {
-                    Label("Replace Exercise", systemImage: "arrow.triangle.2.circlepath")
                 }
-                Button(role: .destructive) {
+                Button("Remove from Routine", role: .destructive) {
                     removeFromRoutine()
-                } label: {
-                    Label("Remove from Routine", systemImage: "trash")
                 }
             }
         }
         .contentMargins(.horizontal, 16, for: .scrollContent)
         .listSectionSpacing(.compact)
+        .scrollDismissesKeyboard(.interactively)
         .navigationTitle(routineExercise.exercise?.name ?? "Exercise")
         .navigationBarTitleDisplayMode(.inline)
         .sheet(isPresented: $showReplace) {
-            ReplaceExercisePicker(routine: routine, current: routineExercise) { chosen in
+            SingleExercisePicker(
+                title: "Replace Exercise",
+                blockedIDs: blockedIDs,
+                currentID: routineExercise.exercise?.id
+            ) { chosen in
                 routineExercise.exercise = chosen
             }
         }
@@ -112,75 +107,12 @@ struct RoutineExerciseDetailView: View {
         }
         dismiss()
     }
-}
 
-/// Single-select exercise browser used to swap one routine slot for another.
-/// Exercises already in the routine (other than the current one) are hidden to
-/// avoid creating a duplicate.
-private struct ReplaceExercisePicker: View {
-    @Environment(\.dismiss) private var dismiss
-    @Query(sort: \MuscleGroup.sortOrder) private var groups: [MuscleGroup]
-
-    let routine: Routine
-    let current: RoutineExercise
-    let onSelect: (Exercise) -> Void
-
-    @State private var search = ""
-
-    var body: some View {
-        NavigationStack {
-            List {
-                ForEach(groups) { group in
-                    let exercises = available(in: group)
-                    if !exercises.isEmpty {
-                        Section {
-                            ForEach(exercises) { exercise in
-                                Button {
-                                    onSelect(exercise)
-                                    dismiss()
-                                } label: {
-                                    HStack {
-                                        Text(exercise.name)
-                                            .foregroundStyle(.primary)
-                                        Spacer()
-                                        if exercise.id == current.exercise?.id {
-                                            Image(systemName: "checkmark")
-                                                .foregroundStyle(.tint)
-                                        }
-                                    }
-                                    .contentShape(Rectangle())
-                                }
-                                .buttonStyle(.plain)
-                            }
-                        } header: {
-                            Text(group.name).alignedSectionHeader()
-                        }
-                    }
-                }
-            }
-            .contentMargins(.horizontal, 16, for: .scrollContent)
-            .listSectionSpacing(.compact)
-            .searchable(text: $search, prompt: "Search exercises")
-            .navigationTitle("Replace Exercise")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
-                }
-            }
-        }
-    }
-
+    /// Exercises already in the routine other than this one — hidden in the
+    /// replace picker to avoid creating a duplicate.
     private var blockedIDs: Set<UUID> {
         var ids = Set(routine.exercises.compactMap { $0.exercise?.id })
-        if let currentID = current.exercise?.id { ids.remove(currentID) }
+        if let currentID = routineExercise.exercise?.id { ids.remove(currentID) }
         return ids
-    }
-
-    private func available(in group: MuscleGroup) -> [Exercise] {
-        group.exercises
-            .filter { !blockedIDs.contains($0.id) }
-            .filter { search.isEmpty || $0.name.localizedCaseInsensitiveContains(search) }
-            .sorted { $0.name < $1.name }
     }
 }

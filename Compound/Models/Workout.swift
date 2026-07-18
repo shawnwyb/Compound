@@ -13,6 +13,8 @@ final class Workout {
     var date: Date
     var startedAt: Date
     var durationSeconds: Int
+    /// Freeform notes for the session.
+    var notes: String = ""
     /// Set when the user manually edits a finished session; nil otherwise.
     var editedAt: Date?
 
@@ -26,6 +28,7 @@ final class Workout {
         date: Date = .now,
         startedAt: Date = .now,
         durationSeconds: Int = 0,
+        notes: String = "",
         editedAt: Date? = nil
     ) {
         self.id = id
@@ -34,6 +37,7 @@ final class Workout {
         self.date = date
         self.startedAt = startedAt
         self.durationSeconds = durationSeconds
+        self.notes = notes
         self.editedAt = editedAt
     }
 }
