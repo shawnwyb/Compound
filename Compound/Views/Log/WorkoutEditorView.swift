@@ -10,16 +10,23 @@ struct WorkoutEditorView: View {
     @Bindable var workout: Workout
     let isNew: Bool
 
+    @Query private var settingsRows: [Settings]
     @State private var sheet: EditorSheet?
+
+    private var unit: String {
+        settingsRows.first?.units.abbreviation ?? UnitSystem.pounds.abbreviation
+    }
 
     private enum EditorSheet: Identifiable {
         case addExercise
         case replace(WorkoutExercise)
+        case reorder
 
         var id: String {
             switch self {
             case .addExercise: "add"
             case .replace(let exercise): exercise.id.uuidString
+            case .reorder: "reorder"
             }
         }
     }
@@ -40,6 +47,7 @@ struct WorkoutEditorView: View {
                     ForEach(exercise.orderedSets) { set in
                         WorkoutSetRow(
                             set: set,
+                            unit: unit,
                             onDuplicate: { count in duplicateSet(set, times: count, in: exercise) },
                             onDelete: { deleteSet(set, in: exercise) }
                         )
@@ -57,18 +65,11 @@ struct WorkoutEditorView: View {
                         Spacer()
                         Menu {
                             Button {
-                                moveExercise(exercise, by: -1)
+                                sheet = .reorder
                             } label: {
-                                Label("Move Up", systemImage: "arrow.up")
+                                Label("Reorder", systemImage: "arrow.up.arrow.down")
                             }
-                            .disabled(isFirst(exercise))
-
-                            Button {
-                                moveExercise(exercise, by: 1)
-                            } label: {
-                                Label("Move Down", systemImage: "arrow.down")
-                            }
-                            .disabled(isLast(exercise))
+                            .disabled(workout.orderedExercises.count < 2)
 
                             Button {
                                 sheet = .replace(exercise)
@@ -127,6 +128,8 @@ struct WorkoutEditorView: View {
                     exercise.exercise = chosen
                     exercise.exerciseName = chosen.name
                 }
+            case .reorder:
+                ReorderExercisesView(workout: workout)
             }
         }
         .interactiveDismissDisabled(isNew)
@@ -225,28 +228,10 @@ struct WorkoutEditorView: View {
         reindexExercises()
     }
 
-    private func moveExercise(_ exercise: WorkoutExercise, by delta: Int) {
-        let ordered = workout.orderedExercises
-        guard let i = ordered.firstIndex(where: { $0.id == exercise.id }) else { return }
-        let j = i + delta
-        guard ordered.indices.contains(j) else { return }
-        let tmp = ordered[i].position
-        ordered[i].position = ordered[j].position
-        ordered[j].position = tmp
-    }
-
     private func reindexExercises() {
         for (index, exercise) in workout.orderedExercises.enumerated() {
             exercise.position = index
         }
-    }
-
-    private func isFirst(_ exercise: WorkoutExercise) -> Bool {
-        workout.orderedExercises.first?.id == exercise.id
-    }
-
-    private func isLast(_ exercise: WorkoutExercise) -> Bool {
-        workout.orderedExercises.last?.id == exercise.id
     }
 
     private func blockedIDs(excluding exercise: WorkoutExercise) -> Set<UUID> {
@@ -258,14 +243,10 @@ struct WorkoutEditorView: View {
 
 /// One editable set row: number, weight, reps, and a menu to duplicate or delete.
 private struct WorkoutSetRow: View {
-    @Query private var settingsRows: [Settings]
     @Bindable var set: SetEntry
+    let unit: String
     let onDuplicate: (Int) -> Void
     let onDelete: () -> Void
-
-    private var unit: String {
-        settingsRows.first?.units.abbreviation ?? UnitSystem.pounds.abbreviation
-    }
 
     var body: some View {
         HStack(spacing: 12) {
@@ -328,6 +309,40 @@ private struct WorkoutSetRow: View {
                 .textFieldStyle(.roundedBorder)
                 .frame(width: width)
             Text(unit).font(.caption).foregroundStyle(.secondary)
+        }
+    }
+}
+
+/// A focused drag-to-reorder screen for the workout's exercises.
+private struct ReorderExercisesView: View {
+    @Environment(\.dismiss) private var dismiss
+    @Bindable var workout: Workout
+    @State private var editMode: EditMode = .active
+
+    var body: some View {
+        NavigationStack {
+            List {
+                ForEach(workout.orderedExercises) { exercise in
+                    Text(exercise.exerciseName)
+                }
+                .onMove(perform: move)
+            }
+            .environment(\.editMode, $editMode)
+            .navigationTitle("Reorder Exercises")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
+        }
+    }
+
+    private func move(_ offsets: IndexSet, to destination: Int) {
+        var ordered = workout.orderedExercises
+        ordered.move(fromOffsets: offsets, toOffset: destination)
+        for (index, exercise) in ordered.enumerated() {
+            exercise.position = index
         }
     }
 }
