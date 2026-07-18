@@ -6,16 +6,38 @@ import Observation
 final class SessionSet: Identifiable {
     let id = UUID()
     var setNumber: Int
+    /// The value the user has actually typed. `0` means "not entered yet" — the
+    /// row shows `targetReps`/`targetWeight` as a grey placeholder instead.
     var reps: Int
     var weight: Double
+    /// The planned/previous values, shown as ghost placeholders and used as the
+    /// logged value when the user leaves a set untouched.
+    var targetReps: Int
+    var targetWeight: Double
+    var note: String
     var completed: Bool
 
-    init(setNumber: Int, reps: Int = 0, weight: Double = 0, completed: Bool = false) {
+    init(
+        setNumber: Int,
+        reps: Int = 0,
+        weight: Double = 0,
+        targetReps: Int = 0,
+        targetWeight: Double = 0,
+        note: String = "",
+        completed: Bool = false
+    ) {
         self.setNumber = setNumber
         self.reps = reps
         self.weight = weight
+        self.targetReps = targetReps
+        self.targetWeight = targetWeight
+        self.note = note
         self.completed = completed
     }
+
+    /// What actually gets logged: the typed value, or the target if untouched.
+    var effectiveReps: Int { reps != 0 ? reps : targetReps }
+    var effectiveWeight: Double { weight != 0 ? weight : targetWeight }
 }
 
 /// One exercise inside a live session, holding its ordered sets.
@@ -33,9 +55,16 @@ final class SessionExercise: Identifiable {
         self.sets = sets
     }
 
-    /// Appends a new set, carrying the previous set's weight forward.
+    /// Appends a new set, carrying the previous set's weight forward as the
+    /// target (ghost) so the new row starts empty with that value hinted.
     func addSet() {
-        sets.append(SessionSet(setNumber: sets.count + 1, reps: 0, weight: sets.last?.weight ?? 0))
+        sets.append(
+            SessionSet(
+                setNumber: sets.count + 1,
+                targetReps: sets.last?.effectiveReps ?? 0,
+                targetWeight: sets.last?.effectiveWeight ?? 0
+            )
+        )
     }
 
     /// Removes sets at the given offsets and re-sequences the set numbers.

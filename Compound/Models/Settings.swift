@@ -30,9 +30,17 @@ final class Settings {
     var restSoundEnabled: Bool
     var restVibrationEnabled: Bool
     var theme: ThemePreference
-    /// User-editable rest-timer presets, in seconds. Default value doubles as the
-    /// lightweight-migration default for stores created before this property.
-    var restPresets: [Int] = [30, 60, 90, 120, 180]
+    /// JSON-encoded backing store for `restPresets`. Stored as `Data`, not
+    /// `[Int]`, because SwiftData's array-of-primitive attribute fails to
+    /// materialize during store migrations — which breaks *every* later schema
+    /// change. Keeping the schema free of `[Int]` attributes avoids that.
+    private var restPresetsData: Data = Data("[30,60,90,120,180]".utf8)
+
+    /// User-editable rest-timer presets, in seconds.
+    var restPresets: [Int] {
+        get { (try? JSONDecoder().decode([Int].self, from: restPresetsData)) ?? [] }
+        set { restPresetsData = (try? JSONEncoder().encode(newValue)) ?? restPresetsData }
+    }
 
     init(
         units: UnitSystem = .pounds,

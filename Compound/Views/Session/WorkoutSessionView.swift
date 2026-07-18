@@ -84,54 +84,27 @@ struct WorkoutSessionView: View {
     }
 }
 
-/// One logged set: number, weight, reps, and a completion toggle.
+/// One live set row: the shared borderless layout, with the circle wired to
+/// toggle completion and ghosts sourced from the set's target (planned) values.
 private struct SetRow: View {
     @Bindable var set: SessionSet
     let unit: String
     let onToggle: () -> Void
 
     var body: some View {
-        HStack(spacing: 12) {
-            Text("\(set.setNumber)")
-                .font(.headline)
-                .foregroundStyle(.secondary)
-                .frame(width: 24)
-
-            numberField(value: $set.weight, unit: unit, width: 66)
-            intField(value: $set.reps, unit: "reps", width: 58)
-
-            Spacer()
-
-            Button(action: onToggle) {
-                Image(systemName: set.completed ? "checkmark.circle.fill" : "circle")
-                    .font(.title2)
-                    .foregroundStyle(set.completed ? .green : .secondary)
-            }
-            .buttonStyle(.plain)
-        }
-        .padding(.vertical, 2)
-    }
-
-    private func numberField(value: Binding<Double>, unit: String, width: CGFloat) -> some View {
-        HStack(spacing: 4) {
-            TextField("0", value: value, format: .number)
-                .keyboardType(.decimalPad)
-                .multilineTextAlignment(.center)
-                .textFieldStyle(.roundedBorder)
-                .frame(width: width)
-            Text(unit).font(.caption).foregroundStyle(.secondary)
-        }
-    }
-
-    private func intField(value: Binding<Int>, unit: String, width: CGFloat) -> some View {
-        HStack(spacing: 4) {
-            TextField("0", value: value, format: .number)
-                .keyboardType(.numberPad)
-                .multilineTextAlignment(.center)
-                .textFieldStyle(.roundedBorder)
-                .frame(width: width)
-            Text(unit).font(.caption).foregroundStyle(.secondary)
-        }
+        SetInputRow(
+            setNumber: set.setNumber,
+            unit: unit,
+            ghostWeight: ghostSetNumber(set.targetWeight),
+            ghostReps: ghostSetNumber(Double(set.targetReps)),
+            initialWeight: set.weight != 0 ? formattedSetNumber(set.weight) : "",
+            initialReps: set.reps != 0 ? "\(set.reps)" : "",
+            note: $set.note,
+            completed: set.completed,
+            onToggle: onToggle,
+            onWeightChange: { set.weight = Double($0.replacingOccurrences(of: ",", with: ".")) ?? 0 },
+            onRepsChange: { set.reps = Int($0.filter(\.isNumber)) ?? 0 }
+        )
     }
 }
 

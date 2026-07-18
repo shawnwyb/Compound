@@ -47,7 +47,7 @@ enum WorkoutHistory {
                 } ?? []
             let seeds = SessionBuilder.seededSets(targetSets: planned.targetSets, lastValues: remembered)
             let sets = seeds.enumerated().map { index, seed in
-                SessionSet(setNumber: index + 1, reps: seed.reps, weight: seed.weight)
+                SessionSet(setNumber: index + 1, targetReps: seed.reps, targetWeight: seed.weight)
             }
             return SessionExercise(
                 exercise: planned.exercise,
@@ -87,9 +87,10 @@ enum WorkoutHistory {
             for sessionSet in sessionExercise.sets {
                 let entry = SetEntry(
                     setNumber: sessionSet.setNumber,
-                    reps: sessionSet.reps,
-                    weight: sessionSet.weight,
-                    completed: sessionSet.completed
+                    reps: sessionSet.effectiveReps,
+                    weight: sessionSet.effectiveWeight,
+                    completed: sessionSet.completed,
+                    note: sessionSet.note
                 )
                 context.insert(entry)
                 entry.workoutExercise = performed

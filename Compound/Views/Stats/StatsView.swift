@@ -254,6 +254,7 @@ struct StatsView: View {
                     }
                 }
             }
+            .chartYScale(domain: yDomain(points))
             .frame(height: 220)
             .padding(.vertical, 4)
             .accessibilityLabel(title(kind))
@@ -333,6 +334,16 @@ struct StatsView: View {
         let magnitude = formatValue(abs(change), kind: kind)
         let sign = change > 0 ? "+" : (change < 0 ? "−" : "")
         return "\(sign)\(magnitude) \(unitSuffix(kind))"
+    }
+
+    /// A padded Y range that never has zero span — a flat or single-point series
+    /// would otherwise make Charts divide by zero and emit NaN to CoreGraphics.
+    private func yDomain(_ points: [SeriesPoint]) -> ClosedRange<Double> {
+        let values = points.map(\.value)
+        guard let lo = values.min(), let hi = values.max() else { return 0...1 }
+        guard hi > lo else { return (lo - 1)...(hi + 1) }
+        let pad = (hi - lo) * 0.1
+        return (lo - pad)...(hi + pad)
     }
 
     private func compactVolume(_ value: Double) -> String {

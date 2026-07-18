@@ -11,7 +11,11 @@ struct WorkoutEditorView: View {
     let isNew: Bool
 
     @Query private var settingsRows: [Settings]
+    @Query private var routines: [Routine]
     @State private var sheet: EditorSheet?
+    /// Set when the workout is deleted (or a new one cancelled) so the
+    /// finalize-on-disappear pass doesn't touch a discarded object.
+    @State private var removed = false
 
     private var unit: String {
         settingsRows.first?.units.abbreviation ?? UnitSystem.pounds.abbreviation
@@ -44,8 +48,13 @@ struct WorkoutEditorView: View {
 
             ForEach(workout.orderedExercises) { exercise in
                 Section {
-                    ForEach(exercise.orderedSets) { set in
-                        WorkoutSetRow(set: set, unit: unit)
+                    ForEach(Array(exercise.orderedSets.enumerated()), id: \.element.id) { index, set in
+                        WorkoutSetRow(
+                            set: set,
+                            unit: unit,
+                            ghostWeight: index > 0 ? exercise.orderedSets[index - 1].weight : nil,
+                            ghostReps: index > 0 ? exercise.orderedSets[index - 1].reps : nil
+                        )
                     }
                     .onDelete { deleteSets(at: $0, in: exercise) }
 
@@ -105,12 +114,31 @@ struct WorkoutEditorView: View {
                 ToolbarItem(placement: .topBarLeading) {
                     Button("Cancel") { cancel() }
                 }
-            }
-            ToolbarItem(placement: .topBarTrailing) {
-                Button("Done") { done() }
-                    .fontWeight(.semibold)
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Done") { dismiss() }
+                        .fontWeight(.semibold)
+                }
+            } else {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Menu {
+                        Button {
+                            saveAsRoutine()
+                        } label: {
+                            Label("Save as Routine", systemImage: "square.and.arrow.down")
+                        }
+
+                        Button(role: .destructive) {
+                            deleteWorkout()
+                        } label: {
+                            Label("Delete Workout", systemImage: "trash")
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis.circle")
+                    }
+                }
             }
         }
+        .onDisappear { finalizeIfNeeded() }
         .sheet(item: $sheet) { active in
             switch active {
             case .addExercise:
@@ -159,11 +187,14 @@ struct WorkoutEditorView: View {
     // MARK: - Save / cancel
 
     private func cancel() {
+        removed = true
         if isNew { context.delete(workout) }
         dismiss()
     }
 
-    private func done() {
+    /// Commit edits when leaving, unless the workout was deleted or cancelled.
+    private func finalizeIfNeeded() {
+        guard !removed else { return }
         if workout.routineName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             workout.routineName = "Workout"
         }
@@ -175,14 +206,36 @@ struct WorkoutEditorView: View {
         }
         if !isNew { workout.editedAt = .now }
         try? context.save()
+    }
+
+    private func deleteWorkout() {
+        removed = true
+        context.delete(workout)
         dismiss()
+    }
+
+    /// Create a new routine template from this workout's exercises, using each
+    /// exercise's set count as the target. Reps/weight aren't stored on routines.
+    private func saveAsRoutine() {
+        let name = workout.routineName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let routine = Routine(name: name.isEmpty ? "Workout" : name, sortOrder: routines.count)
+        context.insert(routine)
+        for (index, exercise) in workout.orderedExercises.enumerated() {
+            let planned = RoutineExercise(
+                exercise: exercise.exercise,
+                targetSets: max(1, exercise.sets.count),
+                position: index
+            )
+            context.insert(planned)
+            planned.routine = routine
+        }
     }
 
     // MARK: - Sets
 
     private func addSet(to exercise: WorkoutExercise) {
-        let last = exercise.orderedSets.last
-        insertSet(reps: last?.reps ?? 0, weight: last?.weight ?? 0, completed: false, in: exercise)
+        // Empty on purpose — the row shows the previous set's values as ghost text.
+        insertSet(reps: 0, weight: 0, completed: false, in: exercise)
     }
 
     private func insertSet(reps: Int, weight: Double, completed: Bool, in exercise: WorkoutExercise) {
@@ -226,63 +279,29 @@ struct WorkoutEditorView: View {
     }
 }
 
-/// One editable set row: number, weight, reps, and a menu to duplicate or delete.
+/// One editable log set: the shared borderless layout. The circle is a plain
+/// indicator (filled once the set has data); completion is finalized on save.
 private struct WorkoutSetRow: View {
     @Bindable var set: SetEntry
     let unit: String
+    /// Previous set's values, shown as gray "ghost" placeholders until this set
+    /// is filled in.
+    let ghostWeight: Double?
+    let ghostReps: Int?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 12) {
-                Text("\(set.setNumber)")
-                    .font(.headline)
-                    .foregroundStyle(.secondary)
-                    .frame(width: 24, alignment: .leading)
-
-                Spacer()
-
-                field(
-                    TextField("0", value: $set.weight, format: .number)
-                        .keyboardType(.decimalPad),
-                    isPlaceholder: set.weight == 0,
-                    unit: unit,
-                    width: 64
-                )
-
-                Spacer()
-
-                field(
-                    TextField("0", value: $set.reps, format: .number)
-                        .keyboardType(.numberPad),
-                    isPlaceholder: set.reps == 0,
-                    unit: "reps",
-                    width: 56
-                )
-            }
-
-            TextField("Add note", text: $set.note, axis: .vertical)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-        }
-        .padding(.vertical, 4)
-    }
-
-    private func field(
-        _ textField: some View,
-        isPlaceholder: Bool,
-        unit: String,
-        width: CGFloat
-    ) -> some View {
-        HStack(spacing: 4) {
-            textField
-                .multilineTextAlignment(.center)
-                .monospacedDigit()
-                .foregroundStyle(isPlaceholder ? .secondary : .primary)
-                .frame(width: width)
-            Text(unit)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-        }
+        SetInputRow(
+            setNumber: set.setNumber,
+            unit: unit,
+            ghostWeight: ghostSetNumber(ghostWeight ?? 0),
+            ghostReps: ghostSetNumber(Double(ghostReps ?? 0)),
+            initialWeight: set.weight != 0 ? formattedSetNumber(set.weight) : "",
+            initialReps: set.reps != 0 ? "\(set.reps)" : "",
+            note: $set.note,
+            completed: set.reps > 0 || set.weight > 0,
+            onWeightChange: { set.weight = Double($0.replacingOccurrences(of: ",", with: ".")) ?? 0 },
+            onRepsChange: { set.reps = Int($0.filter(\.isNumber)) ?? 0 }
+        )
     }
 }
 

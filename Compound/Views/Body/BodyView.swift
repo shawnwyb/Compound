@@ -160,6 +160,16 @@ struct BodyView: View {
         }
     }
 
+    /// A padded Y range that never has zero span — a flat or single-point series
+    /// would otherwise make Charts divide by zero and emit NaN to CoreGraphics.
+    private var weightChartDomain: ClosedRange<Double> {
+        let weights = weightSeries.compactMap(\.bodyWeight)
+        guard let lo = weights.min(), let hi = weights.max() else { return 0...1 }
+        guard hi > lo else { return (lo - 1)...(hi + 1) }
+        let pad = (hi - lo) * 0.1
+        return (lo - pad)...(hi + pad)
+    }
+
     private var weightChart: some View {
         Chart(weightSeries) { entry in
             LineMark(
@@ -184,7 +194,7 @@ struct BodyView: View {
         .chartYAxis {
             AxisMarks(position: .leading)
         }
-        .chartYScale(domain: .automatic(includesZero: false))
+        .chartYScale(domain: weightChartDomain)
         .accessibilityLabel("Bodyweight over time")
     }
 
