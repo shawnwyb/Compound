@@ -45,12 +45,7 @@ struct WorkoutEditorView: View {
             ForEach(workout.orderedExercises) { exercise in
                 Section {
                     ForEach(exercise.orderedSets) { set in
-                        WorkoutSetRow(
-                            set: set,
-                            unit: unit,
-                            onDuplicate: { count in duplicateSet(set, times: count, in: exercise) },
-                            onDelete: { deleteSet(set, in: exercise) }
-                        )
+                        WorkoutSetRow(set: set, unit: unit)
                     }
                     .onDelete { deleteSets(at: $0, in: exercise) }
 
@@ -84,7 +79,8 @@ struct WorkoutEditorView: View {
                             }
                         } label: {
                             Image(systemName: "ellipsis")
-                                .foregroundStyle(.secondary)
+                                .font(.title3)
+                                .foregroundStyle(.primary)
                         }
                         .textCase(nil)
                     }
@@ -189,22 +185,11 @@ struct WorkoutEditorView: View {
         insertSet(reps: last?.reps ?? 0, weight: last?.weight ?? 0, completed: false, in: exercise)
     }
 
-    private func duplicateSet(_ set: SetEntry, times: Int, in exercise: WorkoutExercise) {
-        for _ in 0..<max(1, times) {
-            insertSet(reps: set.reps, weight: set.weight, completed: set.completed, in: exercise)
-        }
-    }
-
     private func insertSet(reps: Int, weight: Double, completed: Bool, in exercise: WorkoutExercise) {
         let next = (exercise.sets.map(\.setNumber).max() ?? 0) + 1
         let entry = SetEntry(setNumber: next, reps: reps, weight: weight, completed: completed)
         context.insert(entry)
         entry.workoutExercise = exercise
-    }
-
-    private func deleteSet(_ set: SetEntry, in exercise: WorkoutExercise) {
-        context.delete(set)
-        renumberSets(in: exercise)
     }
 
     private func deleteSets(at offsets: IndexSet, in exercise: WorkoutExercise) {
@@ -245,8 +230,6 @@ struct WorkoutEditorView: View {
 private struct WorkoutSetRow: View {
     @Bindable var set: SetEntry
     let unit: String
-    let onDuplicate: (Int) -> Void
-    let onDelete: () -> Void
 
     var body: some View {
         HStack(spacing: 12) {
@@ -259,33 +242,6 @@ private struct WorkoutSetRow: View {
             intField(value: $set.reps, unit: "reps", width: 58)
 
             Spacer()
-
-            Menu {
-                Button {
-                    onDuplicate(1)
-                } label: {
-                    Label("Duplicate", systemImage: "plus.square.on.square")
-                }
-                Menu {
-                    ForEach([2, 3, 4, 5], id: \.self) { count in
-                        Button("\(count) copies") { onDuplicate(count) }
-                    }
-                } label: {
-                    Label("Add Copies", systemImage: "square.on.square")
-                }
-                Button(role: .destructive) {
-                    onDelete()
-                } label: {
-                    Label("Delete", systemImage: "trash")
-                }
-            } label: {
-                Image(systemName: "ellipsis")
-                    .font(.title3)
-                    .foregroundStyle(.secondary)
-                    .frame(width: 30, height: 44)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
         }
         .padding(.vertical, 2)
     }
