@@ -17,7 +17,6 @@ struct WorkoutEditorView: View {
 
     @Query private var settingsRows: [Settings]
     @Query private var routines: [Routine]
-    @Query(sort: \Workout.date, order: .reverse) private var allWorkouts: [Workout]
 
     @State private var sheet: EditorSheet?
     /// Set when the workout is deleted (or a new one cancelled) so the
@@ -28,7 +27,6 @@ struct WorkoutEditorView: View {
 
     // Live-only state.
     @State private var rest = RestTimer()
-    @State private var showRestTimer = false
     @State private var showDiscardConfirm = false
     /// Prefill ghosts, computed once when a live session appears (history is
     /// stable for the session, so recomputing per keystroke would be wasteful).
@@ -46,12 +44,14 @@ struct WorkoutEditorView: View {
         case addExercise
         case replace(WorkoutExercise)
         case reorder
+        case restTimer
 
         var id: String {
             switch self {
             case .addExercise: "add"
             case .replace(let exercise): exercise.id.uuidString
             case .reorder: "reorder"
+            case .restTimer: "rest"
             }
         }
     }
@@ -111,19 +111,13 @@ struct WorkoutEditorView: View {
         .toolbar { toolbarContent }
         .safeAreaInset(edge: .bottom) {
             if isLive {
-                RestTimerBar(rest: rest, settings: settings) { showRestTimer = true }
+                RestTimerBar(rest: rest, settings: settings) { sheet = .restTimer }
             }
         }
         .onAppear {
             if isLive && ghostMap.isEmpty { ghostMap = computeGhostMap() }
         }
         .onDisappear { finalizeIfNeeded() }
-        .sheet(isPresented: $showRestTimer) {
-            RestTimerSheet(rest: rest, settings: settings)
-                .presentationDetents([.medium, .large])
-                .presentationDragIndicator(.visible)
-                .presentationBackgroundInteraction(.enabled(upThrough: .medium))
-        }
         .sheet(item: $sheet) { active in
             switch active {
             case .addExercise:
@@ -139,6 +133,11 @@ struct WorkoutEditorView: View {
                 }
             case .reorder:
                 ReorderExercisesView(workout: workout)
+            case .restTimer:
+                RestTimerSheet(rest: rest, settings: settings)
+                    .presentationDetents([.medium, .large])
+                    .presentationDragIndicator(.visible)
+                    .presentationBackgroundInteraction(.enabled(upThrough: .medium))
             }
         }
         .confirmationDialog(
@@ -282,7 +281,12 @@ struct WorkoutEditorView: View {
 
     /// Prefill values per exercise, computed once for a live session.
     private func computeGhostMap() -> [UUID: [PrefilledSet]] {
-        let history = WorkoutHistory.snapshot(allWorkouts.filter { !$0.isInProgress })
+        // One-time fetch (not a reactive @Query) so per-keystroke autosaves don't
+        // refresh a query and re-render the live editor while the user is typing.
+        let finished = (try? context.fetch(
+            FetchDescriptor<Workout>(predicate: #Predicate { $0.finishedAt != nil })
+        )) ?? []
+        let history = WorkoutHistory.snapshot(finished)
         let routine = routines.first { $0.id == workout.routineID }
         let prefersRoutine = routine?.prefillFromRoutine ?? false
         var map: [UUID: [PrefilledSet]] = [:]
