@@ -1,0 +1,80 @@
+import SwiftUI
+
+/// The persistent bar shown above the tab bar while a workout is minimized.
+/// Tapping the body re-opens (maximizes) the workout. When a rest timer is
+/// running it swaps to a stop / countdown / dismiss layout; the ✕ only hides the
+/// rest timer — it never ends the workout.
+struct WorkoutMiniBar: View {
+    @Bindable var active: ActiveWorkout
+    let workout: Workout
+    let settings: Settings
+
+    var body: some View {
+        HStack(spacing: 12) {
+            if active.rest.isActive {
+                restContent
+            } else {
+                idleContent
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .frame(maxWidth: .infinity)
+        .background(.bar)
+        .overlay(alignment: .top) { Divider() }
+        .contentShape(Rectangle())
+        .onTapGesture { active.maximize() }
+    }
+
+    @ViewBuilder private var restContent: some View {
+        Button { active.rest.stop() } label: {
+            Image(systemName: "stop.circle.fill").font(.title2)
+        }
+        .buttonStyle(.plain)
+
+        TimelineView(.periodic(from: .now, by: 1)) { context in
+            let remaining = active.rest.remaining(at: context.date)
+            Text(TimeFormat.clock(remaining))
+                .font(.title3)
+                .monospacedDigit()
+                .fontWeight(.semibold)
+                .onChange(of: remaining) { _, newValue in
+                    if active.rest.isActive && newValue == 0 {
+                        RestCompletionAlert.play(
+                            sound: settings.restSoundEnabled,
+                            vibration: settings.restVibrationEnabled
+                        )
+                        active.rest.stop()
+                    }
+                }
+        }
+
+        Spacer()
+
+        Button { active.rest.stop() } label: {
+            Image(systemName: "xmark.circle.fill")
+                .font(.title2)
+                .foregroundStyle(.secondary)
+        }
+        .buttonStyle(.plain)
+    }
+
+    @ViewBuilder private var idleContent: some View {
+        Image(systemName: "figure.strengthtraining.traditional")
+            .foregroundStyle(.tint)
+        Text(workout.routineName.isEmpty ? "Workout" : workout.routineName)
+            .fontWeight(.semibold)
+            .lineLimit(1)
+
+        Spacer()
+
+        TimelineView(.periodic(from: .now, by: 1)) { context in
+            Text(TimeFormat.clock(max(0, Int(context.date.timeIntervalSince(workout.startedAt)))))
+                .monospacedDigit()
+                .foregroundStyle(.secondary)
+        }
+        Image(systemName: "chevron.up")
+            .font(.footnote)
+            .foregroundStyle(.secondary)
+    }
+}

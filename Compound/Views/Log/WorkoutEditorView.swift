@@ -11,6 +11,9 @@ import SwiftData
 struct WorkoutEditorView: View {
     @Environment(\.modelContext) private var context
     @Environment(\.dismiss) private var dismiss
+    /// Root-owned controller; drives the live workout's rest timer and lifecycle
+    /// (minimize / end) so the session survives minimize and tab switches.
+    @Environment(ActiveWorkout.self) private var activeWorkout
 
     @Bindable var workout: Workout
     let isNew: Bool
@@ -26,7 +29,6 @@ struct WorkoutEditorView: View {
     @State private var justFinished = false
 
     // Live-only state.
-    @State private var rest = RestTimer()
     @State private var showDiscardConfirm = false
     /// Prefill ghosts, computed once when a live session appears (history is
     /// stable for the session, so recomputing per keystroke would be wasteful).
@@ -111,7 +113,7 @@ struct WorkoutEditorView: View {
         .toolbar { toolbarContent }
         .safeAreaInset(edge: .bottom) {
             if isLive {
-                RestTimerBar(rest: rest, settings: settings) { sheet = .restTimer }
+                RestTimerBar(rest: activeWorkout.rest, settings: settings) { sheet = .restTimer }
             }
         }
         .onAppear {
@@ -134,7 +136,7 @@ struct WorkoutEditorView: View {
             case .reorder:
                 ReorderExercisesView(workout: workout)
             case .restTimer:
-                RestTimerSheet(rest: rest, settings: settings)
+                RestTimerSheet(rest: activeWorkout.rest, settings: settings)
                     .presentationDetents([.medium, .large])
                     .presentationDragIndicator(.visible)
                     .presentationBackgroundInteraction(.enabled(upThrough: .medium))
@@ -163,6 +165,12 @@ struct WorkoutEditorView: View {
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
         if isLive {
+            ToolbarItem(placement: .topBarLeading) {
+                Button { activeWorkout.minimize() } label: {
+                    Image(systemName: "chevron.down")
+                }
+                .accessibilityLabel("Minimize")
+            }
             ToolbarItem(placement: .topBarLeading) {
                 Button("Discard", role: .destructive) { showDiscardConfirm = true }
             }
@@ -268,13 +276,21 @@ struct WorkoutEditorView: View {
         workout.durationSeconds = max(0, Int(now.timeIntervalSince(workout.startedAt)))
         justFinished = true
         try? context.save()
-        dismiss()
+        activeWorkout.end()
     }
 
     private func discard() {
+        // Dismiss first, delete after: SwiftData faults if the view re-renders and
+        // reads a deleted object's relationships. `end()` tears down this screen;
+        // the delete then runs once it's gone.
         removed = true
-        context.delete(workout)
-        dismiss()
+        let doomed = workout
+        let ctx = context
+        activeWorkout.end()
+        DispatchQueue.main.async {
+            ctx.delete(doomed)
+            try? ctx.save()
+        }
     }
 
     // MARK: - Ghosts
@@ -385,9 +401,16 @@ struct WorkoutEditorView: View {
     }
 
     private func deleteWorkout() {
+        // Same dismiss-then-delete ordering as discard() to avoid a SwiftData
+        // fault from the view reading a deleted object mid-teardown.
         removed = true
-        context.delete(workout)
+        let doomed = workout
+        let ctx = context
         dismiss()
+        DispatchQueue.main.async {
+            ctx.delete(doomed)
+            try? ctx.save()
+        }
     }
 
     /// Create a new routine template from this workout's exercises, using each
@@ -518,10 +541,12 @@ private struct ReorderExercisesView: View {
     NavigationStack {
         WorkoutEditorView(workout: PreviewData.sampleWorkout, isNew: false)
     }
+    .environment(ActiveWorkout())
     .modelContainer(PreviewData.container)
 }
 
 #Preview("Live") {
     WorkoutEditorView(workout: PreviewData.sampleInProgressWorkout, isNew: false)
+        .environment(ActiveWorkout())
         .modelContainer(PreviewData.container)
 }

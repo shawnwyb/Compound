@@ -4,11 +4,11 @@ import SwiftData
 /// The Log tab: finished workouts grouped by month.
 struct LogView: View {
     @Environment(\.modelContext) private var context
+    @Environment(ActiveWorkout.self) private var activeWorkout
     @Query(sort: \Workout.date, order: .reverse) private var workouts: [Workout]
 
     @State private var editingWorkout: Workout?
     @State private var editingIsNew = false
-    @State private var resuming: Workout?
 
     /// Finished workouts only — the in-progress session gets its own card and
     /// never appears in the month history.
@@ -41,7 +41,7 @@ struct LogView: View {
                     List {
                         if let inProgress {
                             Section {
-                                InProgressCard(workout: inProgress) { resuming = inProgress }
+                                InProgressCard(workout: inProgress) { resume(inProgress) }
                                     .listRowInsets(EdgeInsets(top: 5, leading: 16, bottom: 5, trailing: 16))
                                     .listRowSeparator(.hidden)
                                     .listRowBackground(Color.clear)
@@ -100,11 +100,16 @@ struct LogView: View {
                     WorkoutEditorView(workout: workout, isNew: editingIsNew)
                 }
             }
-            .fullScreenCover(item: $resuming) { workout in
-                NavigationStack {
-                    WorkoutEditorView(workout: workout, isNew: false)
-                }
-            }
+        }
+    }
+
+    /// Re-open the in-progress workout: maximize it if it's the active one,
+    /// otherwise adopt it (e.g. resuming after relaunch).
+    private func resume(_ workout: Workout) {
+        if activeWorkout.workout?.id == workout.id {
+            activeWorkout.maximize()
+        } else {
+            activeWorkout.start(workout)
         }
     }
 
@@ -203,5 +208,6 @@ private struct WorkoutRow: View {
 
 #Preview {
     LogView()
+        .environment(ActiveWorkout())
         .modelContainer(PreviewData.container)
 }

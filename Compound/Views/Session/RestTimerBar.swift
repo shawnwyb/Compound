@@ -8,36 +8,40 @@ struct RestTimerBar: View {
     let onTap: () -> Void
 
     var body: some View {
-        Button(action: onTap) {
-            TimelineView(.periodic(from: .now, by: 1)) { context in
-                let remaining = rest.remaining(at: context.date)
-                HStack(spacing: 10) {
+        TimelineView(.periodic(from: .now, by: 1)) { context in
+            let remaining = rest.remaining(at: context.date)
+            HStack(spacing: 10) {
+                if rest.isActive {
+                    // Inline stop — ends the rest without opening the sheet.
+                    Button { rest.stop() } label: {
+                        Image(systemName: "stop.circle.fill")
+                            .font(.title2)
+                    }
+                    .buttonStyle(.plain)
+                    Text(TimeFormat.clock(remaining))
+                        .monospacedDigit()
+                        .fontWeight(.semibold)
+                } else {
                     Image(systemName: "timer")
-                    if rest.isActive {
-                        Text(TimeFormat.clock(remaining))
-                            .monospacedDigit()
-                            .fontWeight(.semibold)
-                    } else {
-                        Text("Rest Timer")
-                    }
-                    Spacer()
-                    Image(systemName: "chevron.up")
-                        .foregroundStyle(.secondary)
+                    Text("Rest Timer")
                 }
-                .padding()
-                .contentShape(Rectangle())
-                .onChange(of: remaining) { _, newValue in
-                    if rest.isActive && newValue == 0 {
-                        RestCompletionAlert.play(
-                            sound: settings.restSoundEnabled,
-                            vibration: settings.restVibrationEnabled
-                        )
-                        rest.stop()
-                    }
+                Spacer()
+                Image(systemName: "chevron.up")
+                    .foregroundStyle(.secondary)
+            }
+            .padding()
+            .contentShape(Rectangle())
+            .onTapGesture { onTap() }
+            .onChange(of: remaining) { _, newValue in
+                if rest.isActive && newValue == 0 {
+                    RestCompletionAlert.play(
+                        sound: settings.restSoundEnabled,
+                        vibration: settings.restVibrationEnabled
+                    )
+                    rest.stop()
                 }
             }
         }
-        .buttonStyle(.plain)
         .background(.bar)
     }
 }

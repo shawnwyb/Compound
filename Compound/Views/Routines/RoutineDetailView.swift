@@ -7,10 +7,10 @@ import SwiftData
 struct RoutineDetailView: View {
     @Environment(\.modelContext) private var context
     @Environment(\.dismiss) private var dismiss
+    @Environment(ActiveWorkout.self) private var activeWorkout
     @Bindable var routine: Routine
     @Query(sort: \Routine.sortOrder) private var routines: [Routine]
 
-    @State private var activeWorkout: Workout?
     @State private var showPicker = false
     @State private var showDeleteConfirm = false
     @State private var editMode: EditMode = .inactive
@@ -61,7 +61,7 @@ struct RoutineDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .safeAreaInset(edge: .bottom) {
             Button {
-                activeWorkout = WorkoutHistory.startWorkout(for: routine, context: context)
+                startWorkout()
             } label: {
                 Text("Start Workout")
                     .fontWeight(.semibold)
@@ -106,11 +106,6 @@ struct RoutineDetailView: View {
         .sheet(isPresented: $showPicker) {
             ExercisePickerView(routine: routine)
         }
-        .fullScreenCover(item: $activeWorkout) { workout in
-            NavigationStack {
-                WorkoutEditorView(workout: workout, isNew: false)
-            }
-        }
         .confirmationDialog(
             "Delete this routine?",
             isPresented: $showDeleteConfirm,
@@ -119,6 +114,17 @@ struct RoutineDetailView: View {
             Button("Delete Routine", role: .destructive) { deleteRoutine() }
         } message: {
             Text("This can't be undone. Your logged workouts are kept.")
+        }
+    }
+
+    /// Start a workout from this routine, or resume the one already running —
+    /// only one workout is active at a time.
+    private func startWorkout() {
+        if activeWorkout.isActive {
+            activeWorkout.maximize()
+        } else {
+            let workout = WorkoutHistory.startWorkout(for: routine, context: context)
+            activeWorkout.start(workout)
         }
     }
 
@@ -225,5 +231,6 @@ private struct PrefillOptionsView: View {
     NavigationStack {
         RoutineDetailView(routine: PreviewData.sampleRoutine)
     }
+    .environment(ActiveWorkout())
     .modelContainer(PreviewData.container)
 }
