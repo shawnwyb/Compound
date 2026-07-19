@@ -30,7 +30,11 @@ struct StatsView: View {
 
     // MARK: - Derived data
 
-    private var snapshot: [StatsWorkout] { StatsSnapshot.from(workouts) }
+    /// Finished workouts only — in-progress sessions (`isInProgress`) never
+    /// contribute to totals, streaks, PRs, or charts.
+    private var finished: [Workout] { workouts.filter { !$0.isInProgress } }
+
+    private var snapshot: [StatsWorkout] { StatsSnapshot.from(finished) }
     private var tracked: [TrackedExercise] { StatsCalculator.trackedExercises(in: snapshot) }
 
     private var bodyData: [BodyPoint] {
@@ -98,7 +102,7 @@ struct StatsView: View {
                     }
                 } else {
                     List {
-                        if !workouts.isEmpty {
+                        if !finished.isEmpty {
                             Section {
                                 overviewGrid
                             } header: {

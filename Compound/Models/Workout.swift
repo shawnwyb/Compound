@@ -13,6 +13,10 @@ final class Workout {
     var date: Date
     var startedAt: Date
     var durationSeconds: Int
+    /// When the session was finished. `nil` means the workout is still in
+    /// progress (live); set on Finish. In-progress workouts are excluded from Log
+    /// history, Stats, export, and prefill (see `isInProgress`).
+    var finishedAt: Date?
     /// Freeform notes for the session.
     var notes: String = ""
     /// Set when the user manually edits a finished session; nil otherwise.
@@ -28,6 +32,7 @@ final class Workout {
         date: Date = .now,
         startedAt: Date = .now,
         durationSeconds: Int = 0,
+        finishedAt: Date? = nil,
         notes: String = "",
         editedAt: Date? = nil
     ) {
@@ -37,12 +42,17 @@ final class Workout {
         self.date = date
         self.startedAt = startedAt
         self.durationSeconds = durationSeconds
+        self.finishedAt = finishedAt
         self.notes = notes
         self.editedAt = editedAt
     }
 }
 
 extension Workout {
+    /// A live, unfinished session. `nil` `finishedAt` is the in-progress sentinel;
+    /// such workouts must stay invisible to analytics, Log history, and prefill.
+    var isInProgress: Bool { finishedAt == nil }
+
     /// Exercises in the order they were performed / arranged.
     var orderedExercises: [WorkoutExercise] {
         exercises.sorted { $0.position < $1.position }

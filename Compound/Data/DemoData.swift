@@ -62,7 +62,8 @@ enum DemoData {
                 routineName: session % 2 == 0 ? "Full Body A" : "Full Body B",
                 date: date,
                 startedAt: date,
-                durationSeconds: 3000 + (session % 4) * 300
+                durationSeconds: 3000 + (session % 4) * 300,
+                finishedAt: date
             )
             context.insert(workout)
 

@@ -47,7 +47,8 @@ enum PreviewData {
             routineName: routine.name,
             date: .now,
             startedAt: .now.addingTimeInterval(-2700),
-            durationSeconds: 2700
+            durationSeconds: 2700,
+            finishedAt: .now
         )
         context.insert(workout)
         for (index, planned) in routine.orderedExercises.prefix(2).enumerated() {
@@ -95,7 +96,8 @@ enum PreviewData {
                 routineName: "Push Day",
                 date: date,
                 startedAt: date,
-                durationSeconds: 3300
+                durationSeconds: 3300,
+                finishedAt: date
             )
             context.insert(workout)
             for (position, exercise) in [primary, secondary].compactMap({ $0 }).enumerated() {

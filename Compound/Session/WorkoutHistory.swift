@@ -33,7 +33,10 @@ enum WorkoutHistory {
     /// most recent completed history for that exercise.
     @MainActor
     static func makeSession(for routine: Routine, context: ModelContext) -> WorkoutSession {
-        let workouts = (try? context.fetch(FetchDescriptor<Workout>())) ?? []
+        // Prefill only from finished workouts — never seed from an in-progress one
+        // (`isInProgress`), including the live session itself once Slice 2 lands.
+        let descriptor = FetchDescriptor<Workout>(predicate: #Predicate { $0.finishedAt != nil })
+        let workouts = (try? context.fetch(descriptor)) ?? []
         let history = snapshot(workouts)
 
         let exercises = routine.orderedExercises.map { planned -> SessionExercise in
@@ -71,7 +74,8 @@ enum WorkoutHistory {
             routineName: session.routineName,
             date: session.startedAt,
             startedAt: session.startedAt,
-            durationSeconds: session.elapsedSeconds(at: finishedAt)
+            durationSeconds: session.elapsedSeconds(at: finishedAt),
+            finishedAt: finishedAt
         )
         context.insert(workout)
 

@@ -96,7 +96,11 @@ enum DataExport {
         let groups = try context.fetch(FetchDescriptor<MuscleGroup>(sortBy: [SortDescriptor(\.sortOrder)]))
         let exercises = try context.fetch(FetchDescriptor<Exercise>(sortBy: [SortDescriptor(\.name)]))
         let routines = try context.fetch(FetchDescriptor<Routine>(sortBy: [SortDescriptor(\.sortOrder)]))
-        let workouts = try context.fetch(FetchDescriptor<Workout>(sortBy: [SortDescriptor(\.date, order: .reverse)]))
+        // Exclude in-progress workouts (`isInProgress`) from the backup.
+        let workouts = try context.fetch(FetchDescriptor<Workout>(
+            predicate: #Predicate { $0.finishedAt != nil },
+            sortBy: [SortDescriptor(\.date, order: .reverse)]
+        ))
         let dailyEntries = try context.fetch(FetchDescriptor<DailyEntry>(sortBy: [SortDescriptor(\.date, order: .reverse)]))
 
         return Payload(

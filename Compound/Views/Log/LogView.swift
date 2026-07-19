@@ -9,14 +9,20 @@ struct LogView: View {
     @State private var editingWorkout: Workout?
     @State private var editingIsNew = false
 
+    /// Finished workouts only — an in-progress session (Slice 2+) gets its own
+    /// card and never appears in the month history.
+    private var finished: [Workout] {
+        workouts.filter { !$0.isInProgress }
+    }
+
     private var sections: [MonthSection<Workout>] {
-        LogGrouping.sections(from: workouts, date: \.date)
+        LogGrouping.sections(from: finished, date: \.date)
     }
 
     var body: some View {
         NavigationStack {
             Group {
-                if workouts.isEmpty {
+                if finished.isEmpty {
                     ContentUnavailableView {
                         Label("No Workouts", systemImage: "calendar")
                     } description: {
@@ -66,7 +72,7 @@ struct LogView: View {
             }
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    if !workouts.isEmpty { EditButton() }
+                    if !finished.isEmpty { EditButton() }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button { addWorkout() } label: {
@@ -88,7 +94,8 @@ struct LogView: View {
     }
 
     private func addWorkout() {
-        let workout = Workout(routineName: "Workout", date: .now, startedAt: .now)
+        // Manually added Log entries are finished by definition.
+        let workout = Workout(routineName: "Workout", date: .now, startedAt: .now, finishedAt: .now)
         context.insert(workout)
         editingIsNew = true
         editingWorkout = workout
