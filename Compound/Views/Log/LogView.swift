@@ -8,11 +8,17 @@ struct LogView: View {
 
     @State private var editingWorkout: Workout?
     @State private var editingIsNew = false
+    @State private var resuming: Workout?
 
-    /// Finished workouts only — an in-progress session (Slice 2+) gets its own
-    /// card and never appears in the month history.
+    /// Finished workouts only — the in-progress session gets its own card and
+    /// never appears in the month history.
     private var finished: [Workout] {
         workouts.filter { !$0.isInProgress }
+    }
+
+    /// The single live workout, if one is running (surfaced for resume).
+    private var inProgress: Workout? {
+        workouts.first { $0.isInProgress }
     }
 
     private var sections: [MonthSection<Workout>] {
@@ -22,7 +28,7 @@ struct LogView: View {
     var body: some View {
         NavigationStack {
             Group {
-                if finished.isEmpty {
+                if finished.isEmpty && inProgress == nil {
                     ContentUnavailableView {
                         Label("No Workouts", systemImage: "calendar")
                     } description: {
@@ -33,6 +39,14 @@ struct LogView: View {
                     }
                 } else {
                     List {
+                        if let inProgress {
+                            Section {
+                                InProgressCard(workout: inProgress) { resuming = inProgress }
+                                    .listRowInsets(EdgeInsets(top: 5, leading: 16, bottom: 5, trailing: 16))
+                                    .listRowSeparator(.hidden)
+                                    .listRowBackground(Color.clear)
+                            }
+                        }
                         ForEach(sections, id: \.monthStart) { section in
                             Section {
                                 ForEach(section.items) { workout in
@@ -86,6 +100,11 @@ struct LogView: View {
                     WorkoutEditorView(workout: workout, isNew: editingIsNew)
                 }
             }
+            .fullScreenCover(item: $resuming) { workout in
+                NavigationStack {
+                    WorkoutEditorView(workout: workout, isNew: false)
+                }
+            }
         }
     }
 
@@ -105,6 +124,41 @@ struct LogView: View {
         for index in offsets {
             context.delete(items[index])
         }
+    }
+}
+
+/// A distinct, tinted card for the single live workout — tap to resume it.
+private struct InProgressCard: View {
+    let workout: Workout
+    let onTap: () -> Void
+
+    var body: some View {
+        Button(action: onTap) {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Label("In Progress", systemImage: "figure.strengthtraining.traditional")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.tint)
+                    Spacer()
+                    TimelineView(.periodic(from: .now, by: 1)) { context in
+                        Text(TimeFormat.clock(max(0, Int(context.date.timeIntervalSince(workout.startedAt)))))
+                            .font(.subheadline)
+                            .monospacedDigit()
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                Text(workout.routineName.isEmpty ? "Workout" : workout.routineName)
+                    .font(.headline)
+                    .foregroundStyle(.primary)
+                Text("Tap to resume")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(.tint.opacity(0.12), in: RoundedRectangle(cornerRadius: 14))
+        }
+        .buttonStyle(.plain)
     }
 }
 

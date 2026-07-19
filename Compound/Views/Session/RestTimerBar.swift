@@ -1,116 +1,8 @@
 import SwiftUI
-import SwiftData
-
-/// The live workout screen: session timer, per-set logging, and a manually
-/// opened rest timer.
-struct WorkoutSessionView: View {
-    @Environment(\.modelContext) private var context
-    @Environment(\.dismiss) private var dismiss
-    @Query private var settingsRows: [Settings]
-
-    @Bindable var session: WorkoutSession
-    @State private var showDiscardConfirm = false
-    @State private var showTimer = false
-
-    private var settings: Settings { settingsRows.first ?? Settings() }
-
-    var body: some View {
-        NavigationStack {
-            List {
-                ForEach(session.exercises) { exercise in
-                    Section {
-                        ForEach(exercise.sets) { set in
-                            SetRow(set: set, unit: settings.units.abbreviation) { session.toggle(set) }
-                        }
-                        .onDelete { exercise.deleteSets(at: $0) }
-
-                        Button {
-                            exercise.addSet()
-                        } label: {
-                            Label("Add Set", systemImage: "plus")
-                                .font(.subheadline)
-                        }
-                    } header: {
-                        Text(exercise.name).alignedSectionHeader()
-                    }
-                }
-            }
-            .contentMargins(.horizontal, 16, for: .scrollContent)
-            .listSectionSpacing(.compact)
-            .navigationTitle(session.routineName)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button("Discard", role: .destructive) { showDiscardConfirm = true }
-                }
-                ToolbarItem(placement: .principal) {
-                    TimelineView(.periodic(from: .now, by: 1)) { context in
-                        Text(TimeFormat.clock(session.elapsedSeconds(at: context.date)))
-                            .font(.headline)
-                            .monospacedDigit()
-                    }
-                }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("Finish") { finish() }
-                        .fontWeight(.semibold)
-                }
-            }
-            .safeAreaInset(edge: .bottom) {
-                RestTimerButton(rest: session.rest, settings: settings) { showTimer = true }
-            }
-            .sheet(isPresented: $showTimer) {
-                RestTimerSheet(rest: session.rest, settings: settings)
-                    .presentationDetents([.medium, .large])
-                    .presentationDragIndicator(.visible)
-                    .presentationBackgroundInteraction(.enabled(upThrough: .medium))
-            }
-            .confirmationDialog(
-                "Discard this workout?",
-                isPresented: $showDiscardConfirm,
-                titleVisibility: .visible
-            ) {
-                Button("Discard Workout", role: .destructive) { dismiss() }
-                Button("Keep Going", role: .cancel) {}
-            } message: {
-                Text("Nothing will be saved to your log.")
-            }
-        }
-        .interactiveDismissDisabled()
-    }
-
-    private func finish() {
-        WorkoutHistory.persist(session, context: context)
-        dismiss()
-    }
-}
-
-/// One live set row: the shared borderless layout, with the circle wired to
-/// toggle completion and ghosts sourced from the set's target (planned) values.
-private struct SetRow: View {
-    @Bindable var set: SessionSet
-    let unit: String
-    let onToggle: () -> Void
-
-    var body: some View {
-        SetInputRow(
-            setNumber: set.setNumber,
-            unit: unit,
-            ghostWeight: ghostSetNumber(set.targetWeight),
-            ghostReps: ghostSetNumber(Double(set.targetReps)),
-            initialWeight: set.weight != 0 ? formattedSetNumber(set.weight) : "",
-            initialReps: set.reps != 0 ? "\(set.reps)" : "",
-            note: $set.note,
-            completed: set.completed,
-            onToggle: onToggle,
-            onWeightChange: { set.weight = Double($0.replacingOccurrences(of: ",", with: ".")) ?? 0 },
-            onRepsChange: { set.reps = Int($0.filter(\.isNumber)) ?? 0 }
-        )
-    }
-}
 
 /// Always-visible bottom bar that opens the rest timer; shows the live
 /// countdown when a rest is running, and auto-stops it at zero.
-private struct RestTimerButton: View {
+struct RestTimerBar: View {
     @Bindable var rest: RestTimer
     let settings: Settings
     let onTap: () -> Void
@@ -152,7 +44,7 @@ private struct RestTimerButton: View {
 
 /// The draggable rest-timer sheet: live countdown, running controls, and
 /// tappable presets the user can add to or delete.
-private struct RestTimerSheet: View {
+struct RestTimerSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Bindable var rest: RestTimer
     @Bindable var settings: Settings
@@ -287,24 +179,4 @@ private struct AddPresetSheet: View {
         }
         dismiss()
     }
-}
-
-#Preview {
-    WorkoutSessionView(
-        session: WorkoutSession(
-            routineID: nil,
-            routineName: "Push Day",
-            exercises: [
-                SessionExercise(exercise: nil, name: "Bench Press", sets: [
-                    SessionSet(setNumber: 1, reps: 8, weight: 135),
-                    SessionSet(setNumber: 2, reps: 8, weight: 135),
-                    SessionSet(setNumber: 3, reps: 6, weight: 145),
-                ]),
-                SessionExercise(exercise: nil, name: "Incline Dumbbell Press", sets: [
-                    SessionSet(setNumber: 1, reps: 10, weight: 50),
-                ]),
-            ]
-        )
-    )
-    .modelContainer(PreviewData.container)
 }

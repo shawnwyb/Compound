@@ -10,7 +10,7 @@ struct RoutineDetailView: View {
     @Bindable var routine: Routine
     @Query(sort: \Routine.sortOrder) private var routines: [Routine]
 
-    @State private var session: WorkoutSession?
+    @State private var activeWorkout: Workout?
     @State private var showPicker = false
     @State private var showDeleteConfirm = false
     @State private var editMode: EditMode = .inactive
@@ -61,7 +61,7 @@ struct RoutineDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .safeAreaInset(edge: .bottom) {
             Button {
-                session = WorkoutHistory.makeSession(for: routine, context: context)
+                activeWorkout = WorkoutHistory.startWorkout(for: routine, context: context)
             } label: {
                 Text("Start Workout")
                     .fontWeight(.semibold)
@@ -106,8 +106,10 @@ struct RoutineDetailView: View {
         .sheet(isPresented: $showPicker) {
             ExercisePickerView(routine: routine)
         }
-        .fullScreenCover(item: $session) { session in
-            WorkoutSessionView(session: session)
+        .fullScreenCover(item: $activeWorkout) { workout in
+            NavigationStack {
+                WorkoutEditorView(workout: workout, isNew: false)
+            }
         }
         .confirmationDialog(
             "Delete this routine?",

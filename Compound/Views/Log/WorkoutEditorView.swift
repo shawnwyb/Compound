@@ -1,8 +1,13 @@
 import SwiftUI
 import SwiftData
 
-/// Edit a finished (or manually added) workout directly. Mutates only this
-/// `Workout` and its child rows — never touches any `Routine`.
+/// The one workout screen, over a persisted `Workout`. It has three modes:
+/// - **Live** (`workout.isInProgress`): session timer, Finish / Discard, the
+///   rest-timer bar, tappable completion circles, and on-the-fly prefill ghosts.
+/// - **New** (`isNew`, finished): a blank manual Log entry with Cancel / Done.
+/// - **Finished** (opened from Log): the ⋯ menu (Save as Routine / Delete) and
+///   previous-set ghosts.
+/// It only ever mutates this `Workout` and its child rows — never a `Routine`.
 struct WorkoutEditorView: View {
     @Environment(\.modelContext) private var context
     @Environment(\.dismiss) private var dismiss
@@ -12,14 +17,30 @@ struct WorkoutEditorView: View {
 
     @Query private var settingsRows: [Settings]
     @Query private var routines: [Routine]
+    @Query(sort: \Workout.date, order: .reverse) private var allWorkouts: [Workout]
+
     @State private var sheet: EditorSheet?
     /// Set when the workout is deleted (or a new one cancelled) so the
     /// finalize-on-disappear pass doesn't touch a discarded object.
     @State private var removed = false
+    /// Set by Finish so the finished-finalize pass doesn't re-stamp `editedAt`.
+    @State private var justFinished = false
+
+    // Live-only state.
+    @State private var rest = RestTimer()
+    @State private var showRestTimer = false
+    @State private var showDiscardConfirm = false
+    /// Prefill ghosts, computed once when a live session appears (history is
+    /// stable for the session, so recomputing per keystroke would be wasteful).
+    @State private var ghostMap: [UUID: [PrefilledSet]] = [:]
+
+    private var isLive: Bool { workout.isInProgress }
 
     private var unit: String {
         settingsRows.first?.units.abbreviation ?? UnitSystem.pounds.abbreviation
     }
+
+    private var settings: Settings { settingsRows.first ?? Settings() }
 
     private enum EditorSheet: Identifiable {
         case addExercise
@@ -37,23 +58,28 @@ struct WorkoutEditorView: View {
 
     var body: some View {
         Form {
-            Section {
-                TextField("Name", text: $workout.routineName)
-                DatePicker("Start time", selection: startBinding, displayedComponents: [.date, .hourAndMinute])
-                DatePicker("End time", selection: endBinding, displayedComponents: [.date, .hourAndMinute])
-                TextField("Notes", text: $workout.notes, axis: .vertical)
-            } header: {
-                Text("Details").alignedSectionHeader()
+            if !isLive {
+                Section {
+                    TextField("Name", text: $workout.routineName)
+                    DatePicker("Start time", selection: startBinding, displayedComponents: [.date, .hourAndMinute])
+                    DatePicker("End time", selection: endBinding, displayedComponents: [.date, .hourAndMinute])
+                    TextField("Notes", text: $workout.notes, axis: .vertical)
+                } header: {
+                    Text("Details").alignedSectionHeader()
+                }
             }
 
             ForEach(workout.orderedExercises) { exercise in
+                let ghosts = isLive ? liveGhosts(for: exercise) : []
                 Section {
                     ForEach(Array(exercise.orderedSets.enumerated()), id: \.element.id) { index, set in
                         WorkoutSetRow(
                             set: set,
                             unit: unit,
-                            ghostWeight: index > 0 ? exercise.orderedSets[index - 1].weight : nil,
-                            ghostReps: index > 0 ? exercise.orderedSets[index - 1].reps : nil
+                            ghostWeight: ghostWeight(exercise, at: index, live: ghosts),
+                            ghostReps: ghostReps(exercise, at: index, live: ghosts),
+                            completed: isLive ? set.completed : (set.reps > 0 || set.weight > 0),
+                            onToggle: isLive ? { set.completed.toggle() } : nil
                         )
                     }
                     .onDelete { deleteSets(at: $0, in: exercise) }
@@ -64,81 +90,40 @@ struct WorkoutEditorView: View {
                         Label("Add Set", systemImage: "plus")
                     }
                 } header: {
-                    HStack {
-                        Text(exercise.exerciseName)
-                        Spacer()
-                        Menu {
-                            Button {
-                                sheet = .reorder
-                            } label: {
-                                Label("Reorder", systemImage: "arrow.up.arrow.down")
-                            }
-                            .disabled(workout.orderedExercises.count < 2)
-
-                            Button {
-                                sheet = .replace(exercise)
-                            } label: {
-                                Label("Replace", systemImage: "arrow.triangle.2.circlepath")
-                            }
-
-                            Button(role: .destructive) {
-                                removeExercise(exercise)
-                            } label: {
-                                Label("Delete", systemImage: "trash")
-                            }
-                        } label: {
-                            Image(systemName: "ellipsis")
-                                .font(.title3)
-                                .foregroundStyle(.primary)
-                        }
-                        .textCase(nil)
-                    }
-                    .alignedSectionHeader()
+                    exerciseHeader(exercise)
                 }
             }
 
-            Section {
-                Button {
-                    sheet = .addExercise
-                } label: {
-                    Label("Add Exercise", systemImage: "plus.circle.fill")
+            if !isLive {
+                Section {
+                    Button {
+                        sheet = .addExercise
+                    } label: {
+                        Label("Add Exercise", systemImage: "plus.circle.fill")
+                    }
                 }
             }
         }
         .contentMargins(.horizontal, 16, for: .scrollContent)
         .listSectionSpacing(.compact)
-        .navigationTitle(isNew ? "New Workout" : "Edit Workout")
+        .navigationTitle(navigationTitle)
         .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            if isNew {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button("Cancel") { cancel() }
-                }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("Done") { dismiss() }
-                        .fontWeight(.semibold)
-                }
-            } else {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Menu {
-                        Button {
-                            saveAsRoutine()
-                        } label: {
-                            Label("Save as Routine", systemImage: "square.and.arrow.down")
-                        }
-
-                        Button(role: .destructive) {
-                            deleteWorkout()
-                        } label: {
-                            Label("Delete Workout", systemImage: "trash")
-                        }
-                    } label: {
-                        Image(systemName: "ellipsis.circle")
-                    }
-                }
+        .toolbar { toolbarContent }
+        .safeAreaInset(edge: .bottom) {
+            if isLive {
+                RestTimerBar(rest: rest, settings: settings) { showRestTimer = true }
             }
         }
+        .onAppear {
+            if isLive && ghostMap.isEmpty { ghostMap = computeGhostMap() }
+        }
         .onDisappear { finalizeIfNeeded() }
+        .sheet(isPresented: $showRestTimer) {
+            RestTimerSheet(rest: rest, settings: settings)
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
+                .presentationBackgroundInteraction(.enabled(upThrough: .medium))
+        }
         .sheet(item: $sheet) { active in
             switch active {
             case .addExercise:
@@ -156,7 +141,188 @@ struct WorkoutEditorView: View {
                 ReorderExercisesView(workout: workout)
             }
         }
-        .interactiveDismissDisabled(isNew)
+        .confirmationDialog(
+            "Discard this workout?",
+            isPresented: $showDiscardConfirm,
+            titleVisibility: .visible
+        ) {
+            Button("Discard Workout", role: .destructive) { discard() }
+            Button("Keep Going", role: .cancel) {}
+        } message: {
+            Text("Nothing will be saved to your log.")
+        }
+        .interactiveDismissDisabled(isNew || isLive)
+    }
+
+    // MARK: - Toolbar
+
+    private var navigationTitle: String {
+        if isLive { return workout.routineName }
+        return isNew ? "New Workout" : "Edit Workout"
+    }
+
+    @ToolbarContentBuilder
+    private var toolbarContent: some ToolbarContent {
+        if isLive {
+            ToolbarItem(placement: .topBarLeading) {
+                Button("Discard", role: .destructive) { showDiscardConfirm = true }
+            }
+            ToolbarItem(placement: .principal) {
+                TimelineView(.periodic(from: .now, by: 1)) { context in
+                    Text(TimeFormat.clock(elapsed(at: context.date)))
+                        .font(.headline)
+                        .monospacedDigit()
+                }
+            }
+            ToolbarItem(placement: .topBarTrailing) {
+                Button("Finish") { finish() }
+                    .fontWeight(.semibold)
+            }
+        } else if isNew {
+            ToolbarItem(placement: .topBarLeading) {
+                Button("Cancel") { cancel() }
+            }
+            ToolbarItem(placement: .topBarTrailing) {
+                Button("Done") { dismiss() }
+                    .fontWeight(.semibold)
+            }
+        } else {
+            ToolbarItem(placement: .topBarTrailing) {
+                Menu {
+                    Button {
+                        saveAsRoutine()
+                    } label: {
+                        Label("Save as Routine", systemImage: "square.and.arrow.down")
+                    }
+
+                    Button(role: .destructive) {
+                        deleteWorkout()
+                    } label: {
+                        Label("Delete Workout", systemImage: "trash")
+                    }
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                }
+            }
+        }
+    }
+
+    /// Live sessions show just the name; finished editing gets the ⋯ menu.
+    @ViewBuilder
+    private func exerciseHeader(_ exercise: WorkoutExercise) -> some View {
+        if isLive {
+            Text(exercise.exerciseName).alignedSectionHeader()
+        } else {
+            HStack {
+                Text(exercise.exerciseName)
+                Spacer()
+                Menu {
+                    Button {
+                        sheet = .reorder
+                    } label: {
+                        Label("Reorder", systemImage: "arrow.up.arrow.down")
+                    }
+                    .disabled(workout.orderedExercises.count < 2)
+
+                    Button {
+                        sheet = .replace(exercise)
+                    } label: {
+                        Label("Replace", systemImage: "arrow.triangle.2.circlepath")
+                    }
+
+                    Button(role: .destructive) {
+                        removeExercise(exercise)
+                    } label: {
+                        Label("Delete", systemImage: "trash")
+                    }
+                } label: {
+                    Image(systemName: "ellipsis")
+                        .font(.title3)
+                        .foregroundStyle(.primary)
+                }
+                .textCase(nil)
+            }
+            .alignedSectionHeader()
+        }
+    }
+
+    // MARK: - Live session
+
+    private func elapsed(at now: Date) -> Int {
+        max(0, Int(now.timeIntervalSince(workout.startedAt)))
+    }
+
+    /// Finish the live session: fill untouched sets from their ghost, stamp the
+    /// finish time and duration, and persist. `justFinished` stops the
+    /// disappear-finalize from also treating this as a manual edit.
+    private func finish() {
+        let now = Date.now
+        for exercise in workout.exercises {
+            let ghosts = liveGhosts(for: exercise)
+            for (index, set) in exercise.orderedSets.enumerated() where set.reps == 0 && set.weight == 0 {
+                guard index < ghosts.count else { continue }
+                set.reps = ghosts[index].reps
+                set.weight = ghosts[index].weight
+            }
+        }
+        workout.finishedAt = now
+        workout.durationSeconds = max(0, Int(now.timeIntervalSince(workout.startedAt)))
+        justFinished = true
+        try? context.save()
+        dismiss()
+    }
+
+    private func discard() {
+        removed = true
+        context.delete(workout)
+        dismiss()
+    }
+
+    // MARK: - Ghosts
+
+    /// Prefill values per exercise, computed once for a live session.
+    private func computeGhostMap() -> [UUID: [PrefilledSet]] {
+        let history = WorkoutHistory.snapshot(allWorkouts.filter { !$0.isInProgress })
+        let routine = routines.first { $0.id == workout.routineID }
+        let prefersRoutine = routine?.prefillFromRoutine ?? false
+        var map: [UUID: [PrefilledSet]] = [:]
+        for exercise in workout.exercises {
+            guard let exID = exercise.exercise?.id, map[exID] == nil else { continue }
+            map[exID] = PrefillService.lastValues(
+                for: exID,
+                in: history,
+                preferringRoutine: prefersRoutine ? workout.routineID : nil
+            )
+        }
+        return map
+    }
+
+    /// Ghost values for a live exercise's sets: last time's numbers per set
+    /// index, carrying the last known value forward for sets added beyond history.
+    private func liveGhosts(for exercise: WorkoutExercise) -> [(weight: Double, reps: Int)] {
+        let prefill: [PrefilledSet] = exercise.exercise.flatMap { ghostMap[$0.id] } ?? []
+        var result: [(weight: Double, reps: Int)] = []
+        for index in exercise.orderedSets.indices {
+            if index < prefill.count {
+                result.append((prefill[index].weight, prefill[index].reps))
+            } else if let last = result.last {
+                result.append(last)
+            } else {
+                result.append((weight: 0, reps: 0))
+            }
+        }
+        return result
+    }
+
+    /// Live: prefill ghost by index. Finished: the previous set in this workout.
+    private func ghostWeight(_ exercise: WorkoutExercise, at index: Int, live: [(weight: Double, reps: Int)]) -> Double? {
+        if isLive { return index < live.count ? live[index].weight : nil }
+        return index > 0 ? exercise.orderedSets[index - 1].weight : nil
+    }
+
+    private func ghostReps(_ exercise: WorkoutExercise, at index: Int, live: [(weight: Double, reps: Int)]) -> Int? {
+        if isLive { return index < live.count ? live[index].reps : nil }
+        return index > 0 ? exercise.orderedSets[index - 1].reps : nil
     }
 
     // MARK: - Start / end time bindings
@@ -192,9 +358,15 @@ struct WorkoutEditorView: View {
         dismiss()
     }
 
-    /// Commit edits when leaving, unless the workout was deleted or cancelled.
+    /// Commit edits when leaving. Live sessions just persist (Finish / Discard own
+    /// the lifecycle); finished editing normalizes the name, derives completion,
+    /// and stamps `editedAt`.
     private func finalizeIfNeeded() {
-        guard !removed else { return }
+        guard !removed, !justFinished else { return }
+        if workout.isInProgress {
+            try? context.save()
+            return
+        }
         if workout.routineName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             workout.routineName = "Workout"
         }
@@ -234,13 +406,9 @@ struct WorkoutEditorView: View {
     // MARK: - Sets
 
     private func addSet(to exercise: WorkoutExercise) {
-        // Empty on purpose — the row shows the previous set's values as ghost text.
-        insertSet(reps: 0, weight: 0, completed: false, in: exercise)
-    }
-
-    private func insertSet(reps: Int, weight: Double, completed: Bool, in exercise: WorkoutExercise) {
+        // Empty on purpose — the row shows its ghost until the user types.
         let next = (exercise.sets.map(\.setNumber).max() ?? 0) + 1
-        let entry = SetEntry(setNumber: next, reps: reps, weight: weight, completed: completed)
+        let entry = SetEntry(setNumber: next)
         context.insert(entry)
         entry.workoutExercise = exercise
     }
@@ -279,15 +447,17 @@ struct WorkoutEditorView: View {
     }
 }
 
-/// One editable log set: the shared borderless layout. The circle is a plain
-/// indicator (filled once the set has data); completion is finalized on save.
+/// One editable set row: the shared borderless layout. Live sessions pass a
+/// tappable `onToggle`; finished editing leaves it nil so the circle is a plain
+/// indicator (filled once the set has data).
 private struct WorkoutSetRow: View {
     @Bindable var set: SetEntry
     let unit: String
-    /// Previous set's values, shown as gray "ghost" placeholders until this set
-    /// is filled in.
+    /// Ghost placeholders shown in grey until the field is filled in.
     let ghostWeight: Double?
     let ghostReps: Int?
+    let completed: Bool
+    var onToggle: (() -> Void)? = nil
 
     var body: some View {
         SetInputRow(
@@ -298,7 +468,8 @@ private struct WorkoutSetRow: View {
             initialWeight: set.weight != 0 ? formattedSetNumber(set.weight) : "",
             initialReps: set.reps != 0 ? "\(set.reps)" : "",
             note: $set.note,
-            completed: set.reps > 0 || set.weight > 0,
+            completed: completed,
+            onToggle: onToggle,
             onWeightChange: { set.weight = Double($0.replacingOccurrences(of: ",", with: ".")) ?? 0 },
             onRepsChange: { set.reps = Int($0.filter(\.isNumber)) ?? 0 }
         )
@@ -339,9 +510,14 @@ private struct ReorderExercisesView: View {
     }
 }
 
-#Preview {
+#Preview("Finished") {
     NavigationStack {
         WorkoutEditorView(workout: PreviewData.sampleWorkout, isNew: false)
     }
     .modelContainer(PreviewData.container)
+}
+
+#Preview("Live") {
+    WorkoutEditorView(workout: PreviewData.sampleInProgressWorkout, isNew: false)
+        .modelContainer(PreviewData.container)
 }

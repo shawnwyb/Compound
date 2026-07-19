@@ -73,6 +73,36 @@ enum PreviewData {
         return workout
     }
 
+    /// An in-progress workout (blank sets) for the live editor preview.
+    @MainActor
+    static var sampleInProgressWorkout: Workout {
+        let context = container.mainContext
+        let routine = sampleRoutine
+        let workout = Workout(
+            routineID: routine.id,
+            routineName: routine.name,
+            date: .now,
+            startedAt: .now.addingTimeInterval(-94),
+            finishedAt: nil
+        )
+        context.insert(workout)
+        for (index, planned) in routine.orderedExercises.prefix(2).enumerated() {
+            let performed = WorkoutExercise(
+                exercise: planned.exercise,
+                exerciseName: planned.exercise?.name ?? "Exercise",
+                position: index
+            )
+            context.insert(performed)
+            performed.workout = workout
+            for setNumber in 1...2 {
+                let entry = SetEntry(setNumber: setNumber)
+                context.insert(entry)
+                entry.workoutExercise = performed
+            }
+        }
+        return workout
+    }
+
     /// Several weeks of workouts for the same exercises, so the Stats
     /// progression chart has a real trend to draw.
     @MainActor

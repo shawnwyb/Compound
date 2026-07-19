@@ -1,11 +1,13 @@
 import Foundation
 import SwiftData
 
-/// Bridges SwiftData models and the pure session logic: builds a session from a
-/// routine (with prefill) and persists a finished session back into the store.
+/// Bridges SwiftData models and the pure session logic: starts a persisted
+/// in-progress `Workout` from a routine and reduces past workouts to the plain
+/// history structs prefill consumes.
 enum WorkoutHistory {
 
     /// Reduce persisted workouts to the plain history structs prefill consumes.
+    /// Pass only finished workouts — an in-progress session must never seed itself.
     static func snapshot(_ workouts: [Workout]) -> [HistoricalWorkout] {
         workouts.map { workout in
             HistoricalWorkout(
@@ -29,78 +31,54 @@ enum WorkoutHistory {
         }
     }
 
-    /// Build a fresh in-memory session for `routine`, seeding each set from the
-    /// most recent completed history for that exercise.
+    /// Start a workout: persist a fresh in-progress `Workout` (`finishedAt == nil`)
+    /// seeded with empty `SetEntry` rows from `routine`. The set *count* per
+    /// exercise carries forward from history (so mid-workout adds/deletes stick);
+    /// the actual reps/weight are shown as on-the-fly ghosts by the editor, not
+    /// stored — the rows start blank and are filled from the ghost on Finish.
     @MainActor
-    static func makeSession(for routine: Routine, context: ModelContext) -> WorkoutSession {
-        // Prefill only from finished workouts — never seed from an in-progress one
-        // (`isInProgress`), including the live session itself once Slice 2 lands.
+    static func startWorkout(for routine: Routine, context: ModelContext) -> Workout {
         let descriptor = FetchDescriptor<Workout>(predicate: #Predicate { $0.finishedAt != nil })
-        let workouts = (try? context.fetch(descriptor)) ?? []
-        let history = snapshot(workouts)
+        let history = snapshot((try? context.fetch(descriptor)) ?? [])
 
-        let exercises = routine.orderedExercises.map { planned -> SessionExercise in
-            let remembered = planned.exercise
-                .map {
-                    PrefillService.lastValues(
-                        for: $0.id,
-                        in: history,
-                        preferringRoutine: routine.prefillFromRoutine ? routine.id : nil
-                    )
-                } ?? []
-            let seeds = SessionBuilder.seededSets(targetSets: planned.targetSets, lastValues: remembered)
-            let sets = seeds.enumerated().map { index, seed in
-                SessionSet(setNumber: index + 1, targetReps: seed.reps, targetWeight: seed.weight)
-            }
-            return SessionExercise(
-                exercise: planned.exercise,
-                name: planned.exercise?.name ?? "Exercise",
-                sets: sets
-            )
-        }
-
-        return WorkoutSession(
+        let workout = Workout(
             routineID: routine.id,
             routineName: routine.name,
-            exercises: exercises
-        )
-    }
-
-    /// Persist a finished session as a `Workout` snapshot (later editable from Log).
-    @MainActor
-    static func persist(_ session: WorkoutSession, finishedAt: Date = .now, context: ModelContext) {
-        let workout = Workout(
-            routineID: session.routineID,
-            routineName: session.routineName,
-            date: session.startedAt,
-            startedAt: session.startedAt,
-            durationSeconds: session.elapsedSeconds(at: finishedAt),
-            finishedAt: finishedAt
+            date: .now,
+            startedAt: .now,
+            finishedAt: nil
         )
         context.insert(workout)
 
-        for (index, sessionExercise) in session.exercises.enumerated() {
+        for (position, planned) in routine.orderedExercises.enumerated() {
+            let remembered = planned.exercise.map {
+                PrefillService.lastValues(
+                    for: $0.id,
+                    in: history,
+                    preferringRoutine: routine.prefillFromRoutine ? routine.id : nil
+                )
+            } ?? []
+            let count = SessionBuilder.setCount(
+                targetSets: planned.targetSets,
+                historyCount: remembered.count
+            )
+
             let performed = WorkoutExercise(
-                exercise: sessionExercise.exercise,
-                exerciseName: sessionExercise.name,
-                position: index
+                exercise: planned.exercise,
+                exerciseName: planned.exercise?.name ?? "Exercise",
+                position: position
             )
             context.insert(performed)
             performed.workout = workout
 
-            for sessionSet in sessionExercise.sets {
-                let entry = SetEntry(
-                    setNumber: sessionSet.setNumber,
-                    reps: sessionSet.effectiveReps,
-                    weight: sessionSet.effectiveWeight,
-                    completed: sessionSet.completed,
-                    note: sessionSet.note
-                )
+            for index in 0..<count {
+                let entry = SetEntry(setNumber: index + 1)
                 context.insert(entry)
                 entry.workoutExercise = performed
             }
         }
 
         try? context.save()
+        return workout
     }
 }
