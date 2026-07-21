@@ -36,7 +36,7 @@ struct RootTabView: View {
                 WorkoutMiniBar(active: active, workout: workout, settings: settings)
             }
         }
-        .fullScreenCover(isPresented: coverPresented) {
+        .fullScreenCover(isPresented: coverPresented, onDismiss: deletePendingWorkout) {
             NavigationStack {
                 if let workout = active.workout {
                     WorkoutEditorView(workout: workout, isNew: false)
@@ -58,6 +58,15 @@ struct RootTabView: View {
                 if !presented && active.isActive { active.isMinimized = true }
             }
         )
+    }
+
+    /// Runs after the live screen has fully dismissed. Discard defers deletion to
+    /// here so no view is still rendering the (about-to-be-deleted) set rows.
+    private func deletePendingWorkout() {
+        guard let doomed = active.pendingDeletion else { return }
+        active.pendingDeletion = nil
+        context.delete(doomed)
+        try? context.save()
     }
 
     private func colorScheme(for theme: ThemePreference) -> ColorScheme? {

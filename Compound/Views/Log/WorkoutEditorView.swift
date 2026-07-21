@@ -280,17 +280,11 @@ struct WorkoutEditorView: View {
     }
 
     private func discard() {
-        // Dismiss first, delete after: SwiftData faults if the view re-renders and
-        // reads a deleted object's relationships. `end()` tears down this screen;
-        // the delete then runs once it's gone.
+        // Dismiss now, delete after the cover is fully gone (RootTabView's cover
+        // `onDismiss`). Deleting while this view is still dismissing faults
+        // SwiftData as it re-renders the workout's set rows.
         removed = true
-        let doomed = workout
-        let ctx = context
-        activeWorkout.end()
-        DispatchQueue.main.async {
-            ctx.delete(doomed)
-            try? ctx.save()
-        }
+        activeWorkout.requestDiscard()
     }
 
     // MARK: - Ghosts
@@ -401,16 +395,9 @@ struct WorkoutEditorView: View {
     }
 
     private func deleteWorkout() {
-        // Same dismiss-then-delete ordering as discard() to avoid a SwiftData
-        // fault from the view reading a deleted object mid-teardown.
         removed = true
-        let doomed = workout
-        let ctx = context
+        context.delete(workout)
         dismiss()
-        DispatchQueue.main.async {
-            ctx.delete(doomed)
-            try? ctx.save()
-        }
     }
 
     /// Create a new routine template from this workout's exercises, using each

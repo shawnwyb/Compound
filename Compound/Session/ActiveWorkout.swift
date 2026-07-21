@@ -13,6 +13,11 @@ final class ActiveWorkout {
     /// The rest timer lives here so it keeps counting while minimized.
     let rest = RestTimer()
 
+    /// Set by Discard; the workout to delete once the live screen has fully
+    /// dismissed. Deleting earlier faults SwiftData because the dismissing view
+    /// is still rendering the workout's set rows.
+    var pendingDeletion: Workout?
+
     var isActive: Bool { workout != nil }
 
     /// Begin a freshly-started (already persisted) workout, shown full-screen.
@@ -25,11 +30,18 @@ final class ActiveWorkout {
     func minimize() { isMinimized = true }
     func maximize() { isMinimized = false }
 
-    /// Clear the active workout (after Finish or Discard). Does not touch the
-    /// store — the caller decides whether the `Workout` was saved or deleted.
+    /// Clear the active workout (after Finish). Does not touch the store — the
+    /// `Workout` stays saved as a finished session.
     func end() {
         workout = nil
         isMinimized = false
         rest.stop()
+    }
+
+    /// Dismiss the live screen and mark its workout for deletion once the screen
+    /// is gone (the root does the actual delete in the cover's `onDismiss`).
+    func requestDiscard() {
+        pendingDeletion = workout
+        end()
     }
 }
