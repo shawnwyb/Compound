@@ -1,17 +1,11 @@
-//
-//  CompoundWidgetsBundle.swift
-//  CompoundWidgets
-//
-//  Created by Shawnick Wang on 7/21/26.
-//
-
-import WidgetKit
 import SwiftUI
+import WidgetKit
 
+/// The extension only ships the workout Live Activity — there is no home-screen
+/// widget (the Xcode template's placeholder one was removed).
 @main
 struct CompoundWidgetsBundle: WidgetBundle {
     var body: some Widget {
-        CompoundWidgets()
-        CompoundWidgetsLiveActivity()
+        WorkoutLiveActivity()
     }
 }

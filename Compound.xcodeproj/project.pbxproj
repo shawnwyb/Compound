@@ -59,6 +59,13 @@
 			);
 			target = C82810D2301037130020834A /* CompoundWidgetsExtension */;
 		};
+		C82810F7301037140020834A /* Exceptions for "Compound" folder in "CompoundWidgetsExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Session/WorkoutActivityAttributes.swift,
+			);
+			target = C82810D2301037130020834A /* CompoundWidgetsExtension */;
+		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -69,6 +76,9 @@
 		};
 		C8177DBC2FFB144C002CDBC4 /* Compound */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				C82810F7301037140020834A /* Exceptions for "Compound" folder in "CompoundWidgetsExtension" target */,
+			);
 			path = Compound;
 			sourceTree = "<group>";
 		};
