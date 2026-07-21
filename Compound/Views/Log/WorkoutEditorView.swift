@@ -30,8 +30,8 @@ struct WorkoutEditorView: View {
 
     // Live-only state.
     @State private var showDiscardConfirm = false
-    /// Prefill ghosts, computed once when a live session appears (history is
-    /// stable for the session, so recomputing per keystroke would be wasteful).
+    /// Prefill ghosts, computed once when the editor appears (history is stable
+    /// while it's open, so recomputing per keystroke would be wasteful).
     @State private var ghostMap: [UUID: [PrefilledSet]] = [:]
 
     private var isLive: Bool { workout.isInProgress }
@@ -72,14 +72,14 @@ struct WorkoutEditorView: View {
             }
 
             ForEach(workout.orderedExercises) { exercise in
-                let ghosts = isLive ? liveGhosts(for: exercise) : []
+                let ghosts = ghosts(for: exercise)
                 Section {
                     ForEach(Array(exercise.orderedSets.enumerated()), id: \.element.id) { index, set in
                         WorkoutSetRow(
                             set: set,
                             unit: unit,
-                            ghostWeight: ghostWeight(exercise, at: index, live: ghosts),
-                            ghostReps: ghostReps(exercise, at: index, live: ghosts),
+                            ghostWeight: ghostWeight(at: index, in: ghosts),
+                            ghostReps: ghostReps(at: index, in: ghosts),
                             completed: isLive ? set.completed : (set.reps > 0 || set.weight > 0),
                             onToggle: isLive ? { toggleCompleted(set) } : nil
                         )
@@ -117,7 +117,7 @@ struct WorkoutEditorView: View {
             }
         }
         .onAppear {
-            if isLive && ghostMap.isEmpty { ghostMap = computeGhostMap() }
+            if ghostMap.isEmpty { ghostMap = computeGhostMap() }
         }
         .onDisappear { finalizeIfNeeded() }
         .sheet(item: $sheet) { active in
@@ -265,7 +265,7 @@ struct WorkoutEditorView: View {
     private func finish() {
         let now = Date.now
         for exercise in workout.exercises {
-            let ghosts = liveGhosts(for: exercise)
+            let ghosts = ghosts(for: exercise)
             for (index, set) in exercise.orderedSets.enumerated() where set.reps == 0 && set.weight == 0 {
                 guard index < ghosts.count else { continue }
                 set.reps = ghosts[index].reps
@@ -289,14 +289,19 @@ struct WorkoutEditorView: View {
 
     // MARK: - Ghosts
 
-    /// Prefill values per exercise, computed once for a live session.
+    /// Prefill values per exercise, computed once when the editor appears. A ghost
+    /// always means the same thing in both modes — "what you did last time" —
+    /// which for a finished session means the sessions before it, never itself.
     private func computeGhostMap() -> [UUID: [PrefilledSet]] {
         // One-time fetch (not a reactive @Query) so per-keystroke autosaves don't
-        // refresh a query and re-render the live editor while the user is typing.
+        // refresh a query and re-render the editor while the user is typing.
         let finished = (try? context.fetch(
             FetchDescriptor<Workout>(predicate: #Predicate { $0.finishedAt != nil })
         )) ?? []
-        let history = WorkoutHistory.snapshot(finished)
+        let priors = isLive
+            ? finished
+            : finished.filter { $0.id != workout.id && $0.date < workout.date }
+        let history = WorkoutHistory.snapshot(priors)
         let routine = routines.first { $0.id == workout.routineID }
         let prefersRoutine = routine?.prefillFromRoutine ?? false
         var map: [UUID: [PrefilledSet]] = [:]
@@ -311,9 +316,9 @@ struct WorkoutEditorView: View {
         return map
     }
 
-    /// Ghost values for a live exercise's sets: last time's numbers per set
-    /// index, carrying the last known value forward for sets added beyond history.
-    private func liveGhosts(for exercise: WorkoutExercise) -> [(weight: Double, reps: Int)] {
+    /// Ghost values for an exercise's sets: last time's numbers per set index,
+    /// carrying the last known value forward for sets added beyond history.
+    private func ghosts(for exercise: WorkoutExercise) -> [(weight: Double, reps: Int)] {
         let prefill: [PrefilledSet] = exercise.exercise.flatMap { ghostMap[$0.id] } ?? []
         var result: [(weight: Double, reps: Int)] = []
         for index in exercise.orderedSets.indices {
@@ -328,15 +333,12 @@ struct WorkoutEditorView: View {
         return result
     }
 
-    /// Live: prefill ghost by index. Finished: the previous set in this workout.
-    private func ghostWeight(_ exercise: WorkoutExercise, at index: Int, live: [(weight: Double, reps: Int)]) -> Double? {
-        if isLive { return index < live.count ? live[index].weight : nil }
-        return index > 0 ? exercise.orderedSets[index - 1].weight : nil
+    private func ghostWeight(at index: Int, in ghosts: [(weight: Double, reps: Int)]) -> Double? {
+        index < ghosts.count ? ghosts[index].weight : nil
     }
 
-    private func ghostReps(_ exercise: WorkoutExercise, at index: Int, live: [(weight: Double, reps: Int)]) -> Int? {
-        if isLive { return index < live.count ? live[index].reps : nil }
-        return index > 0 ? exercise.orderedSets[index - 1].reps : nil
+    private func ghostReps(at index: Int, in ghosts: [(weight: Double, reps: Int)]) -> Int? {
+        index < ghosts.count ? ghosts[index].reps : nil
     }
 
     // MARK: - Start / end time bindings
