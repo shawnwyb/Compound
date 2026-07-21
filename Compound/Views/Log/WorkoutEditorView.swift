@@ -380,6 +380,8 @@ struct WorkoutEditorView: View {
     private func toggleCompleted(_ set: SetEntry) {
         set.completed.toggle()
         try? context.save()
+        // Completion is what moves "Set N of M" along on the Lock Screen.
+        activeWorkout.refreshActivity()
     }
 
     /// Commit edits when leaving. Live sessions just persist (Finish / Discard own

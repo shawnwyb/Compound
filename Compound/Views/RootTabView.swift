@@ -60,7 +60,11 @@ struct RootTabView: View {
         let orphans = (try? context.fetch(
             FetchDescriptor<Workout>(predicate: #Predicate { $0.finishedAt == nil })
         )) ?? []
-        guard let resumable = WorkoutRecovery.plan(for: orphans).resume else { return }
+        guard let resumable = WorkoutRecovery.plan(for: orphans).resume else {
+            // Nothing survived — clear any Live Activity left over from that run.
+            active.discardStaleActivities()
+            return
+        }
         active.resume(resumable)
     }
 

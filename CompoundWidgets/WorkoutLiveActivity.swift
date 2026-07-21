@@ -51,12 +51,16 @@ struct WorkoutLiveActivity: Widget {
     /// Rest counts **down** when resting (matching the in-app rest bar), session
     /// elapsed counts up otherwise. Both are `Date`-driven so iOS ticks them with
     /// the app suspended.
+    /// Both use `timerInterval` rather than `Text(_:style:)` — the style variants
+    /// render as relative phrases ("1 minute") in this context, not a clock.
     @ViewBuilder
     private func timer(for state: WorkoutActivityAttributes.ContentState, startedAt: Date) -> some View {
         if let restEndsAt = state.restEndsAt {
             Text(timerInterval: Date.now...restEndsAt, countsDown: true)
         } else {
-            Text(startedAt, style: .timer)
+            // Open-ended count-up isn't expressible, so cap at the 8h staleness
+            // horizon the controller already uses.
+            Text(timerInterval: startedAt...startedAt.addingTimeInterval(8 * 60 * 60), countsDown: false)
         }
     }
 }
