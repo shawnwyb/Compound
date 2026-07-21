@@ -49,6 +49,12 @@ struct RootTabView: View {
             _ = Settings.current(in: context)
             adoptInterruptedWorkout()
         }
+        .onOpenURL { url in
+            // The Live Activity has one destination: bring the workout back up.
+            if url.scheme == "compound", url.host == "workout", active.isActive {
+                active.maximize()
+            }
+        }
     }
 
     /// Pick up a workout that survived a crash or force-quit (launch cleanup keeps

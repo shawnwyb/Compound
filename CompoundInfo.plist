@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Extra keys merged into the generated Info.plist (GENERATE_INFOPLIST_FILE
+	     stays on). Only here because CFBundleURLTypes is an array of dictionaries,
+	     which the INFOPLIST_KEY_* build settings cannot express. -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>Oriented.Compound</string>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<!-- compound://workout — the Live Activity taps back into the app. -->
+				<string>compound</string>
+			</array>
+		</dict>
+	</array>
+</dict>
+</plist>
