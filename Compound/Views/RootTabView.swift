@@ -45,7 +45,23 @@ struct RootTabView: View {
             }
         }
         .preferredColorScheme(colorScheme(for: settings.theme))
-        .onAppear { _ = Settings.current(in: context) }
+        .onAppear {
+            _ = Settings.current(in: context)
+            adoptInterruptedWorkout()
+        }
+    }
+
+    /// Pick up a workout that survived a crash or force-quit (launch cleanup keeps
+    /// only one, and only if sets were logged). It comes back minimized so the
+    /// mini-bar surfaces it without hijacking the screen — the user decides
+    /// whether to keep going, finish, or discard.
+    private func adoptInterruptedWorkout() {
+        guard !active.isActive else { return }
+        let orphans = (try? context.fetch(
+            FetchDescriptor<Workout>(predicate: #Predicate { $0.finishedAt == nil })
+        )) ?? []
+        guard let resumable = WorkoutRecovery.plan(for: orphans).resume else { return }
+        active.resume(resumable)
     }
 
     /// Drives the full-screen live workout: shown when active and not minimized.

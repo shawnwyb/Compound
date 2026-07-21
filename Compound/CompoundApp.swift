@@ -21,17 +21,19 @@ struct CompoundApp: App {
         }
     }
 
-    /// Remove any in-progress workout left over from a previous session. Nothing
-    /// tracks it once the app relaunches (the live session didn't survive a crash
-    /// or force-quit), so it would otherwise linger with a running timer and
-    /// reappear as a resume card. Runs before the UI so no view reads it mid-delete.
-    /// (Resuming an interrupted workout is a possible future enhancement.)
+    /// Clean up in-progress workouts left over from a previous launch (crash or
+    /// force-quit — nothing was tracking them anymore). Scaffolding with no
+    /// completed sets is deleted so it can't linger with a running timer; a
+    /// session with real logged sets survives and is adopted by `RootTabView` as
+    /// the minimized active workout. Runs before the UI so no view reads a
+    /// workout mid-delete.
     private static func discardOrphanedWorkouts(in context: ModelContext) {
         let orphans = (try? context.fetch(
             FetchDescriptor<Workout>(predicate: #Predicate { $0.finishedAt == nil })
         )) ?? []
-        guard !orphans.isEmpty else { return }
-        for orphan in orphans { context.delete(orphan) }
+        let plan = WorkoutRecovery.plan(for: orphans)
+        guard !plan.discard.isEmpty else { return }
+        for doomed in plan.discard { context.delete(doomed) }
         try? context.save()
     }
 

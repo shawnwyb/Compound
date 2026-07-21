@@ -81,7 +81,7 @@ struct WorkoutEditorView: View {
                             ghostWeight: ghostWeight(exercise, at: index, live: ghosts),
                             ghostReps: ghostReps(exercise, at: index, live: ghosts),
                             completed: isLive ? set.completed : (set.reps > 0 || set.weight > 0),
-                            onToggle: isLive ? { set.completed.toggle() } : nil
+                            onToggle: isLive ? { toggleCompleted(set) } : nil
                         )
                     }
                     .onDelete { deleteSets(at: $0, in: exercise) }
@@ -370,6 +370,14 @@ struct WorkoutEditorView: View {
         removed = true
         if isNew { context.delete(workout) }
         dismiss()
+    }
+
+    /// Mark a set done during a live session. Saved right away rather than left to
+    /// autosave: this is the one edit that says "real work happened here", and it
+    /// has to survive a force-quit for launch recovery to resume the session.
+    private func toggleCompleted(_ set: SetEntry) {
+        set.completed.toggle()
+        try? context.save()
     }
 
     /// Commit edits when leaving. Live sessions just persist (Finish / Discard own
