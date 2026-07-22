@@ -59,7 +59,14 @@ struct RootTabView: View {
                     vibration: current.restVibrationEnabled
                 )
             }
+            active.restAlertSoundEnabled = settings.restSoundEnabled
             adoptInterruptedWorkout()
+        }
+        .onChange(of: settings.restSoundEnabled) { _, enabled in
+            // Queued alerts are scheduled ahead of time, so the preference has to
+            // follow the toggle rather than be read when the rest ends.
+            active.restAlertSoundEnabled = enabled
+            active.rest.onChange?()
         }
         .onChange(of: scenePhase) { _, phase in
             // A rest that ran out while suspended is settled on return — without

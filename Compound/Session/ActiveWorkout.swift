@@ -14,6 +14,10 @@ final class ActiveWorkout {
     let rest = RestTimer()
     /// Mirrors the session onto the Lock Screen / Dynamic Island.
     private let activity = WorkoutActivityController()
+    /// Delivers the end-of-rest alert when the app isn't on screen.
+    private let notifications = RestNotifier()
+    /// Mirrors the Profile rest-sound preference; kept current by the root view.
+    var restAlertSoundEnabled = true
 
     /// Set by Discard; the workout to delete once the live screen has fully
     /// dismissed. Deleting earlier faults SwiftData because the dismissing view
@@ -23,9 +27,15 @@ final class ActiveWorkout {
     var isActive: Bool { workout != nil }
 
     init() {
-        // Rest changes are one of the two things the Live Activity cares about
-        // (the other is set completion, pushed by the editor).
-        rest.onChange = { [weak self] in self?.refreshActivity() }
+        // Rest changes drive both mirrors of the session: the Live Activity, and
+        // the queued alert for when the app isn't on screen. (Set completion, the
+        // other Activity input, is pushed by the editor.)
+        rest.onChange = { [weak self] in self?.restDidChange() }
+    }
+
+    private func restDidChange() {
+        refreshActivity()
+        notifications.sync(endDate: rest.endDate, sound: restAlertSoundEnabled)
     }
 
     /// Begin a freshly-started (already persisted) workout, shown full-screen.
@@ -34,6 +44,9 @@ final class ActiveWorkout {
         isMinimized = false
         rest.stop()
         startActivity()
+        // Ask here rather than at launch: the prompt lands when its purpose is
+        // obvious, and before the first rest needs it.
+        notifications.requestAuthorization()
     }
 
     /// Adopt an already-running workout that the app lost track of (crash or
@@ -44,6 +57,7 @@ final class ActiveWorkout {
         isMinimized = true
         rest.stop()
         startActivity()
+        notifications.requestAuthorization()
     }
 
     /// No session survived the last launch — clear any activity the system is
@@ -62,6 +76,7 @@ final class ActiveWorkout {
         isMinimized = false
         rest.stop()
         activity.end()
+        notifications.cancel()
     }
 
     // MARK: - Live Activity
