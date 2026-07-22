@@ -1,10 +1,10 @@
 import SwiftUI
 
 /// Always-visible bottom bar that opens the rest timer; shows the live
-/// countdown when a rest is running, and auto-stops it at zero.
+/// countdown when a rest is running. Display only — `RestTimer` stops itself at
+/// zero and plays the completion cue.
 struct RestTimerBar: View {
     @Bindable var rest: RestTimer
-    let settings: Settings
     let onTap: () -> Void
 
     var body: some View {
@@ -32,15 +32,6 @@ struct RestTimerBar: View {
             .padding()
             .contentShape(Rectangle())
             .onTapGesture { onTap() }
-            .onChange(of: remaining) { _, newValue in
-                if rest.isActive && newValue == 0 {
-                    RestCompletionAlert.play(
-                        sound: settings.restSoundEnabled,
-                        vibration: settings.restVibrationEnabled
-                    )
-                    rest.stop()
-                }
-            }
         }
         .background(.bar)
     }

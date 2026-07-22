@@ -4,6 +4,7 @@ import SwiftData
 /// The four-tab navigation shell: Log, Routines, Stats, Profile.
 struct RootTabView: View {
     @Environment(\.modelContext) private var context
+    @Environment(\.scenePhase) private var scenePhase
     @Query private var settingsRows: [Settings]
     /// The one in-progress workout, owned here so it survives tab switches and
     /// minimize. Injected into the whole tree via `.environment`.
@@ -33,7 +34,7 @@ struct RootTabView: View {
         .environment(active)
         .safeAreaInset(edge: .bottom) {
             if active.isActive, active.isMinimized, let workout = active.workout {
-                WorkoutMiniBar(active: active, workout: workout, settings: settings)
+                WorkoutMiniBar(active: active, workout: workout)
             }
         }
         .fullScreenCover(isPresented: coverPresented, onDismiss: deletePendingWorkout) {
@@ -47,7 +48,23 @@ struct RootTabView: View {
         .preferredColorScheme(colorScheme(for: settings.theme))
         .onAppear {
             _ = Settings.current(in: context)
+            // The timer owns *when* rest ends; the cue depends on Profile
+            // settings. Read through the context at fire time rather than
+            // capturing `settings` here, which would freeze the preferences as
+            // they were when the root appeared.
+            active.rest.onCompletion = { [context] in
+                let current = Settings.current(in: context)
+                RestCompletionAlert.play(
+                    sound: current.restSoundEnabled,
+                    vibration: current.restVibrationEnabled
+                )
+            }
             adoptInterruptedWorkout()
+        }
+        .onChange(of: scenePhase) { _, phase in
+            // A rest that ran out while suspended is settled on return — without
+            // a cue, since it finished while nobody was looking.
+            if phase == .active { active.rest.reconcile() }
         }
         .onOpenURL { url in
             // The Live Activity has one destination: bring the workout back up.

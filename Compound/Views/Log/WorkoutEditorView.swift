@@ -113,7 +113,7 @@ struct WorkoutEditorView: View {
         .toolbar { toolbarContent }
         .safeAreaInset(edge: .bottom) {
             if isLive {
-                RestTimerBar(rest: activeWorkout.rest, settings: settings) { sheet = .restTimer }
+                RestTimerBar(rest: activeWorkout.rest) { sheet = .restTimer }
             }
         }
         .onAppear {

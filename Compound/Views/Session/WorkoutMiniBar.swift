@@ -7,7 +7,6 @@ import SwiftUI
 struct WorkoutMiniBar: View {
     @Bindable var active: ActiveWorkout
     let workout: Workout
-    let settings: Settings
 
     var body: some View {
         HStack(spacing: 12) {
@@ -33,20 +32,10 @@ struct WorkoutMiniBar: View {
         .buttonStyle(.plain)
 
         TimelineView(.periodic(from: .now, by: 1)) { context in
-            let remaining = active.rest.remaining(at: context.date)
-            Text(TimeFormat.clock(remaining))
+            Text(TimeFormat.clock(active.rest.remaining(at: context.date)))
                 .font(.title3)
                 .monospacedDigit()
                 .fontWeight(.semibold)
-                .onChange(of: remaining) { _, newValue in
-                    if active.rest.isActive && newValue == 0 {
-                        RestCompletionAlert.play(
-                            sound: settings.restSoundEnabled,
-                            vibration: settings.restVibrationEnabled
-                        )
-                        active.rest.stop()
-                    }
-                }
         }
 
         Spacer()
