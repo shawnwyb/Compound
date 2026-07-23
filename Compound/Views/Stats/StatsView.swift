@@ -30,71 +30,21 @@ struct StatsView: View {
 
     // MARK: - Derived data
 
-    /// Finished workouts only — in-progress sessions (`isInProgress`) never
-    /// contribute to totals, streaks, PRs, or charts.
-    private var finished: [Workout] { workouts.filter { !$0.isInProgress } }
-
-    private var snapshot: [StatsWorkout] { StatsSnapshot.from(finished) }
-    private var tracked: [TrackedExercise] { StatsCalculator.trackedExercises(in: snapshot) }
-
-    private var bodyData: [BodyPoint] {
-        dailyEntries.map {
-            BodyPoint(date: $0.date, bodyWeight: $0.bodyWeight, calories: $0.calories, protein: $0.protein)
-        }
-    }
-
-    private var totals: StatsTotals { StatsCalculator.totals(in: snapshot) }
-    private var streak: StreakStats { StatsCalculator.streak(in: snapshot) }
-
     private var unitLabel: String {
         settingsRows.first?.units.abbreviation ?? UnitSystem.pounds.abbreviation
-    }
-
-    private func bodyHasData(_ metric: BodyMetric) -> Bool {
-        !StatsCalculator.bodySeries(metric: metric, in: bodyData).isEmpty
-    }
-
-    private var hasAnyExercise: Bool { !tracked.isEmpty }
-    private var hasAnyBody: Bool { BodyMetric.allCases.contains(where: bodyHasData) }
-    private var hasAnyData: Bool { hasAnyExercise || hasAnyBody }
-
-    /// Selected exercise, defaulting to the most recent and healing if a chosen
-    /// exercise no longer exists.
-    private var resolvedExerciseID: UUID? {
-        if let id = exerciseSelection, tracked.contains(where: { $0.id == id }) { return id }
-        return tracked.first?.id
-    }
-
-    /// Selected body metric, defaulting to the first metric that has data.
-    private var resolvedBodyMetric: BodyMetric {
-        bodyMetricSelection ?? BodyMetric.allCases.first(where: bodyHasData) ?? .bodyWeight
-    }
-
-    private var liftsPoints: [SeriesPoint] {
-        guard let id = resolvedExerciseID else { return [] }
-        let all = StatsCalculator.exerciseSeries(exerciseID: id, metric: exerciseMetric, in: snapshot)
-        return StatsCalculator.filter(all, range: liftsRange)
-    }
-
-    private var bodyPoints: [SeriesPoint] {
-        let all = StatsCalculator.bodySeries(metric: resolvedBodyMetric, in: bodyData)
-        return StatsCalculator.filter(all, range: bodyRange)
-    }
-
-    private var exerciseBinding: Binding<UUID?> {
-        Binding(get: { resolvedExerciseID }, set: { exerciseSelection = $0 })
-    }
-
-    private var bodyMetricBinding: Binding<BodyMetric> {
-        Binding(get: { resolvedBodyMetric }, set: { bodyMetricSelection = $0 })
     }
 
     // MARK: - Body
 
     var body: some View {
+        // One pass over the store per render. These values used to be computed
+        // properties, so `body` re-walked the whole history for each read —
+        // faulting every exercise and set back in a dozen times over.
+        let digest = StatsDigest(workouts: workouts, entries: dailyEntries)
+
         NavigationStack {
             Group {
-                if !hasAnyData {
+                if !digest.hasAnyData {
                     ContentUnavailableView {
                         Label("No Stats Yet", systemImage: "chart.xyaxis.line")
                     } description: {
@@ -102,23 +52,23 @@ struct StatsView: View {
                     }
                 } else {
                     List {
-                        if !finished.isEmpty {
+                        if digest.hasFinishedWorkouts {
                             Section {
-                                overviewGrid
+                                overviewGrid(digest)
                             } header: {
                                 Text("Overview").alignedSectionHeader()
                             }
                         }
-                        if hasAnyExercise {
+                        if digest.hasAnyExercise {
                             Section {
-                                liftsSection
+                                liftsSection(digest)
                             } header: {
                                 Text("Lifts").alignedSectionHeader()
                             }
                         }
-                        if hasAnyBody {
+                        if digest.hasAnyBody {
                             Section {
-                                bodySection
+                                bodySection(digest)
                             } header: {
                                 Text("Body").alignedSectionHeader()
                             }
@@ -134,11 +84,11 @@ struct StatsView: View {
 
     // MARK: - Overview
 
-    private var overviewGrid: some View {
+    private func overviewGrid(_ digest: StatsDigest) -> some View {
         HStack(spacing: 12) {
-            statTile(title: "Workouts", value: "\(totals.workoutCount)")
-            statTile(title: "Streak", value: "\(streak.current)d")
-            statTile(title: "Last 7d", value: "\(streak.daysLast7)")
+            statTile(title: "Workouts", value: "\(digest.totals.workoutCount)")
+            statTile(title: "Streak", value: "\(digest.streak.current)d")
+            statTile(title: "Last 7d", value: "\(digest.streak.daysLast7)")
         }
         .listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 8, trailing: 0))
         .listRowBackground(Color.clear)
@@ -163,9 +113,14 @@ struct StatsView: View {
     // MARK: - Lifts explorer
 
     @ViewBuilder
-    private var liftsSection: some View {
-        Picker("Exercise", selection: exerciseBinding) {
-            ForEach(tracked) { exercise in
+    private func liftsSection(_ digest: StatsDigest) -> some View {
+        // Resolved and plotted once, then handed to both the chart and the
+        // summary — each read used to rebuild the series from scratch.
+        let selectedID = digest.resolvedExerciseID(selection: exerciseSelection)
+        let points = digest.liftsPoints(exerciseID: selectedID, metric: exerciseMetric, range: liftsRange)
+
+        Picker("Exercise", selection: Binding(get: { selectedID }, set: { exerciseSelection = $0 })) {
+            ForEach(digest.tracked) { exercise in
                 Text(exercise.name).tag(Optional(exercise.id))
             }
         }
@@ -182,15 +137,18 @@ struct StatsView: View {
         rangePicker($liftsRange)
 
         let kind = SeriesKind.exercise(exerciseMetric)
-        chartView(points: liftsPoints, kind: kind)
-        summaryRows(points: liftsPoints, kind: kind, range: liftsRange)
+        chartView(points: points, kind: kind)
+        summaryRows(points: points, kind: kind, range: liftsRange)
     }
 
     // MARK: - Body explorer
 
     @ViewBuilder
-    private var bodySection: some View {
-        Picker("Metric", selection: bodyMetricBinding) {
+    private func bodySection(_ digest: StatsDigest) -> some View {
+        let metric = digest.resolvedBodyMetric(selection: bodyMetricSelection)
+        let points = digest.bodyPoints(metric: metric, range: bodyRange)
+
+        Picker("Metric", selection: Binding(get: { metric }, set: { bodyMetricSelection = $0 })) {
             ForEach(BodyMetric.allCases) { metric in
                 Text(metric.label).tag(metric)
             }
@@ -200,9 +158,9 @@ struct StatsView: View {
 
         rangePicker($bodyRange)
 
-        let kind = SeriesKind.body(resolvedBodyMetric)
-        chartView(points: bodyPoints, kind: kind)
-        summaryRows(points: bodyPoints, kind: kind, range: bodyRange)
+        let kind = SeriesKind.body(metric)
+        chartView(points: points, kind: kind)
+        summaryRows(points: points, kind: kind, range: bodyRange)
     }
 
     private func rangePicker(_ selection: Binding<StatsRange>) -> some View {
