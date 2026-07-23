@@ -4,7 +4,7 @@ import SwiftData
 /// JSON export of the local store for backup / share.
 enum DataExport {
 
-    struct Payload: Codable {
+    nonisolated struct Payload: Codable, Sendable {
         var exportedAt: Date
         var settings: SettingsDTO
         var muscleGroups: [MuscleGroupDTO]
@@ -14,7 +14,7 @@ enum DataExport {
         var dailyEntries: [DailyEntryDTO]
     }
 
-    struct SettingsDTO: Codable {
+    nonisolated struct SettingsDTO: Codable, Sendable {
         var units: String
         var defaultRestSeconds: Int
         var restSoundEnabled: Bool
@@ -23,13 +23,13 @@ enum DataExport {
         var restPresets: [Int]
     }
 
-    struct MuscleGroupDTO: Codable {
+    nonisolated struct MuscleGroupDTO: Codable, Sendable {
         var id: UUID
         var name: String
         var sortOrder: Int
     }
 
-    struct ExerciseDTO: Codable {
+    nonisolated struct ExerciseDTO: Codable, Sendable {
         var id: UUID
         var name: String
         var groupID: UUID?
@@ -37,7 +37,7 @@ enum DataExport {
         var notes: String?
     }
 
-    struct RoutineDTO: Codable {
+    nonisolated struct RoutineDTO: Codable, Sendable {
         var id: UUID
         var name: String
         var createdAt: Date
@@ -45,14 +45,14 @@ enum DataExport {
         var exercises: [RoutineExerciseDTO]
     }
 
-    struct RoutineExerciseDTO: Codable {
+    nonisolated struct RoutineExerciseDTO: Codable, Sendable {
         var id: UUID
         var exerciseID: UUID?
         var targetSets: Int
         var position: Int
     }
 
-    struct WorkoutDTO: Codable {
+    nonisolated struct WorkoutDTO: Codable, Sendable {
         var id: UUID
         var routineID: UUID?
         var routineName: String
@@ -63,7 +63,7 @@ enum DataExport {
         var exercises: [WorkoutExerciseDTO]
     }
 
-    struct WorkoutExerciseDTO: Codable {
+    nonisolated struct WorkoutExerciseDTO: Codable, Sendable {
         var id: UUID
         var exerciseID: UUID?
         var exerciseName: String
@@ -71,7 +71,7 @@ enum DataExport {
         var sets: [SetDTO]
     }
 
-    struct SetDTO: Codable {
+    nonisolated struct SetDTO: Codable, Sendable {
         var id: UUID
         var setNumber: Int
         var reps: Int
@@ -80,7 +80,7 @@ enum DataExport {
         var restSeconds: Int?
     }
 
-    struct DailyEntryDTO: Codable {
+    nonisolated struct DailyEntryDTO: Codable, Sendable {
         var id: UUID
         var date: Date
         var bodyWeight: Double?
@@ -184,12 +184,20 @@ enum DataExport {
     }
 
     /// UTF-8 JSON data, pretty-printed for readability.
+    ///
+    /// Encoding runs off the main actor. Reading the store has to happen on it —
+    /// SwiftData models aren't `Sendable` and belong to the main context — but
+    /// serializing the resulting value tree is pure work that would otherwise
+    /// freeze the UI for the length of a whole history.
     @MainActor
-    static func jsonData(from context: ModelContext) throws -> Data {
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        encoder.dateEncodingStrategy = .iso8601
-        return try encoder.encode(payload(from: context))
+    static func jsonData(from context: ModelContext) async throws -> Data {
+        let payload = try payload(from: context)
+        return try await Task.detached(priority: .userInitiated) {
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+            encoder.dateEncodingStrategy = .iso8601
+            return try encoder.encode(payload)
+        }.value
     }
 
     /// Suggested filename for a share/export, e.g. `compound-backup-2026-07-12.json`.

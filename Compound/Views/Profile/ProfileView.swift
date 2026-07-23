@@ -11,6 +11,7 @@ struct ProfileView: View {
     @State private var exportDocument: ExportDocument?
     @State private var showExporter = false
     @State private var exportError: String?
+    @State private var isExporting = false
 
     #if DEBUG
     @State private var showWipeConfirm = false
@@ -86,8 +87,15 @@ struct ProfileView: View {
                 Button {
                     exportBackup()
                 } label: {
-                    Label("Export Backup", systemImage: "square.and.arrow.up")
+                    HStack {
+                        Label("Export Backup", systemImage: "square.and.arrow.up")
+                        if isExporting {
+                            Spacer()
+                            ProgressView()
+                        }
+                    }
                 }
+                .disabled(isExporting)
             } header: {
                 Text("Data").alignedSectionHeader()
             }
@@ -192,13 +200,19 @@ struct ProfileView: View {
         settings.restPresets = next.sorted()
     }
 
+    /// Reads the store on the main actor, then encodes off it. The button is
+    /// disabled meanwhile so a second tap can't start a duplicate export.
     private func exportBackup() {
-        do {
-            let data = try DataExport.jsonData(from: context)
-            exportDocument = ExportDocument(data: data)
-            showExporter = true
-        } catch {
-            exportError = error.localizedDescription
+        isExporting = true
+        Task {
+            defer { isExporting = false }
+            do {
+                let data = try await DataExport.jsonData(from: context)
+                exportDocument = ExportDocument(data: data)
+                showExporter = true
+            } catch {
+                exportError = error.localizedDescription
+            }
         }
     }
 
