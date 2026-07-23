@@ -80,7 +80,7 @@ struct WorkoutEditorView: View {
                             unit: unit,
                             ghostWeight: ghostWeight(at: index, in: ghosts),
                             ghostReps: ghostReps(at: index, in: ghosts),
-                            completed: isLive ? set.completed : (set.reps > 0 || set.weight > 0),
+                            isLive: isLive,
                             onToggle: isLive ? { toggleCompleted(set) } : nil
                         )
                     }
@@ -475,8 +475,15 @@ private struct WorkoutSetRow: View {
     /// Ghost placeholders shown in grey until the field is filled in.
     let ghostWeight: Double?
     let ghostReps: Int?
-    let completed: Bool
+    let isLive: Bool
     var onToggle: (() -> Void)? = nil
+
+    /// Derived here rather than passed in: reading `reps`/`weight` from the
+    /// editor's `body` made every keystroke invalidate the whole form — all
+    /// sections, every row — instead of just the row being typed into.
+    private var completed: Bool {
+        isLive ? set.completed : (set.reps > 0 || set.weight > 0)
+    }
 
     var body: some View {
         SetInputRow(
