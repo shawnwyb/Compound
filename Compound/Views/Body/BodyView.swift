@@ -39,6 +39,11 @@ struct BodyView: View {
     }
 
     var body: some View {
+        // Filtered and sorted once per render. As a computed property it ran
+        // four times over — the count check, the chart, its Y domain, and the
+        // latest reading each re-derived the whole series.
+        let series = weightSeries
+
         NavigationStack {
             List {
                 Section {
@@ -50,12 +55,12 @@ struct BodyView: View {
                     Text("Entry").alignedSectionHeader()
                 }
 
-                if weightSeries.count >= 2 {
+                if series.count >= 2 {
                     Section {
-                        weightChart
+                        weightChart(series)
                             .frame(height: 180)
                             .padding(.vertical, 4)
-                        if let latest = weightSeries.last?.bodyWeight {
+                        if let latest = series.last?.bodyWeight {
                             LabeledContent("Latest", value: "\(formatWeight(latest)) \(unit)")
                                 .font(.subheadline)
                         }
@@ -162,16 +167,16 @@ struct BodyView: View {
 
     /// A padded Y range that never has zero span — a flat or single-point series
     /// would otherwise make Charts divide by zero and emit NaN to CoreGraphics.
-    private var weightChartDomain: ClosedRange<Double> {
-        let weights = weightSeries.compactMap(\.bodyWeight)
+    private func weightChartDomain(_ series: [DailyEntry]) -> ClosedRange<Double> {
+        let weights = series.compactMap(\.bodyWeight)
         guard let lo = weights.min(), let hi = weights.max() else { return 0...1 }
         guard hi > lo else { return (lo - 1)...(hi + 1) }
         let pad = (hi - lo) * 0.1
         return (lo - pad)...(hi + pad)
     }
 
-    private var weightChart: some View {
-        Chart(weightSeries) { entry in
+    private func weightChart(_ series: [DailyEntry]) -> some View {
+        Chart(series) { entry in
             LineMark(
                 x: .value("Day", entry.date, unit: .day),
                 y: .value("Weight", entry.bodyWeight ?? 0)
@@ -194,7 +199,7 @@ struct BodyView: View {
         .chartYAxis {
             AxisMarks(position: .leading)
         }
-        .chartYScale(domain: weightChartDomain)
+        .chartYScale(domain: weightChartDomain(series))
         .accessibilityLabel("Bodyweight over time")
     }
 
