@@ -175,11 +175,8 @@ struct WorkoutEditorView: View {
                 Button("Discard", role: .destructive) { showDiscardConfirm = true }
             }
             ToolbarItem(placement: .principal) {
-                TimelineView(.periodic(from: .now, by: 1)) { context in
-                    Text(TimeFormat.clock(elapsed(at: context.date)))
-                        .font(.headline)
-                        .monospacedDigit()
-                }
+                ElapsedTimeText(since: workout.startedAt)
+                    .font(.headline)
             }
             ToolbarItem(placement: .topBarTrailing) {
                 Button("Finish") { finish() }
@@ -254,10 +251,6 @@ struct WorkoutEditorView: View {
     }
 
     // MARK: - Live session
-
-    private func elapsed(at now: Date) -> Int {
-        max(0, Int(now.timeIntervalSince(workout.startedAt)))
-    }
 
     /// Finish the live session: fill untouched sets from their ghost, stamp the
     /// finish time and duration, and persist. `justFinished` stops the

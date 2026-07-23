@@ -8,31 +8,31 @@ struct RestTimerBar: View {
     let onTap: () -> Void
 
     var body: some View {
-        TimelineView(.periodic(from: .now, by: 1)) { context in
-            let remaining = rest.remaining(at: context.date)
-            HStack(spacing: 10) {
-                if rest.isActive {
-                    // Inline stop — ends the rest without opening the sheet.
-                    Button { rest.stop() } label: {
-                        Image(systemName: "stop.circle.fill")
-                            .font(.title2)
-                    }
-                    .buttonStyle(.plain)
-                    Text(TimeFormat.clock(remaining))
-                        .monospacedDigit()
-                        .fontWeight(.semibold)
-                } else {
-                    Image(systemName: "timer")
-                    Text("Rest Timer")
+        // Only the countdown ticks. This bar is on screen for the whole session,
+        // so wrapping all of it in the `TimelineView` rebuilt the buttons and
+        // layout once a second — and kept doing it between rests, when the label
+        // is a fixed string.
+        HStack(spacing: 10) {
+            if rest.isActive {
+                // Inline stop — ends the rest without opening the sheet.
+                Button { rest.stop() } label: {
+                    Image(systemName: "stop.circle.fill")
+                        .font(.title2)
                 }
-                Spacer()
-                Image(systemName: "chevron.up")
-                    .foregroundStyle(.secondary)
+                .buttonStyle(.plain)
+                RestCountdownText(rest: rest)
+                    .fontWeight(.semibold)
+            } else {
+                Image(systemName: "timer")
+                Text("Rest Timer")
             }
-            .padding()
-            .contentShape(Rectangle())
-            .onTapGesture { onTap() }
+            Spacer()
+            Image(systemName: "chevron.up")
+                .foregroundStyle(.secondary)
         }
+        .padding()
+        .contentShape(Rectangle())
+        .onTapGesture { onTap() }
         .background(.bar)
     }
 }
@@ -92,13 +92,19 @@ struct RestTimerSheet: View {
         }
     }
 
+    @ViewBuilder
     private var countdown: some View {
-        TimelineView(.periodic(from: .now, by: 1)) { context in
-            let remaining = rest.isActive ? rest.remaining(at: context.date) : 0
-            Text(TimeFormat.clock(remaining))
+        // Idle shows a static zero rather than a `TimelineView` ticking over an
+        // unchanging string.
+        if rest.isActive {
+            RestCountdownText(rest: rest)
+                .font(.system(size: 68, weight: .semibold, design: .rounded))
+                .foregroundStyle(.primary)
+        } else {
+            Text(TimeFormat.clock(0))
                 .font(.system(size: 68, weight: .semibold, design: .rounded))
                 .monospacedDigit()
-                .foregroundStyle(rest.isActive ? .primary : .secondary)
+                .foregroundStyle(.secondary)
         }
     }
 

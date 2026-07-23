@@ -31,12 +31,9 @@ struct WorkoutMiniBar: View {
         }
         .buttonStyle(.plain)
 
-        TimelineView(.periodic(from: .now, by: 1)) { context in
-            Text(TimeFormat.clock(active.rest.remaining(at: context.date)))
-                .font(.title3)
-                .monospacedDigit()
-                .fontWeight(.semibold)
-        }
+        RestCountdownText(rest: active.rest)
+            .font(.title3)
+            .fontWeight(.semibold)
 
         Spacer()
 
@@ -57,11 +54,8 @@ struct WorkoutMiniBar: View {
 
         Spacer()
 
-        TimelineView(.periodic(from: .now, by: 1)) { context in
-            Text(TimeFormat.clock(max(0, Int(context.date.timeIntervalSince(workout.startedAt)))))
-                .monospacedDigit()
-                .foregroundStyle(.secondary)
-        }
+        ElapsedTimeText(since: workout.startedAt)
+            .foregroundStyle(.secondary)
         Image(systemName: "chevron.up")
             .font(.footnote)
             .foregroundStyle(.secondary)

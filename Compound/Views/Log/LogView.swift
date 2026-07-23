@@ -145,12 +145,9 @@ private struct InProgressCard: View {
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(.tint)
                     Spacer()
-                    TimelineView(.periodic(from: .now, by: 1)) { context in
-                        Text(TimeFormat.clock(max(0, Int(context.date.timeIntervalSince(workout.startedAt)))))
-                            .font(.subheadline)
-                            .monospacedDigit()
-                            .foregroundStyle(.secondary)
-                    }
+                    ElapsedTimeText(since: workout.startedAt)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
                 }
                 Text(workout.routineName.isEmpty ? "Workout" : workout.routineName)
                     .font(.headline)
