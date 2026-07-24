@@ -429,7 +429,9 @@ struct WorkoutEditorView: View {
         let next = (exercise.sets.map(\.setNumber).max() ?? 0) + 1
         let entry = SetEntry(setNumber: next)
         context.insert(entry)
-        entry.workoutExercise = exercise
+        // Link through the parent so the on-screen set list is notified; assigning
+        // `entry.workoutExercise` alone leaves the rendered rows stale.
+        exercise.sets.append(entry)
     }
 
     private func deleteSets(at offsets: IndexSet, in exercise: WorkoutExercise) {

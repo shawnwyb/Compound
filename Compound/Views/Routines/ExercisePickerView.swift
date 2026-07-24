@@ -85,7 +85,10 @@ struct ExercisePickerView: View {
         for exercise in chosen {
             let item = RoutineExercise(exercise: exercise, targetSets: 3, position: position)
             context.insert(item)
-            item.routine = routine
+            // Link through the parent: assigning `item.routine` updates the store
+            // but doesn't notify observers of `routine.exercises`, so the open
+            // editor would keep showing a stale (empty) list.
+            routine.exercises.append(item)
             position += 1
         }
         dismiss()

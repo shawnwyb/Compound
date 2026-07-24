@@ -89,14 +89,18 @@ struct WorkoutExercisePickerView: View {
                 position: position
             )
             context.insert(performed)
-            performed.workout = workout
 
             // Seed three empty sets so the editor is immediately usable.
             for setNumber in 1...3 {
                 let entry = SetEntry(setNumber: setNumber)
                 context.insert(entry)
-                entry.workoutExercise = performed
+                performed.sets.append(entry)
             }
+
+            // Link through the parent: assigning `performed.workout` updates the
+            // store but doesn't notify observers of `workout.exercises`, so the
+            // open editor would keep showing a stale list.
+            workout.exercises.append(performed)
             position += 1
         }
         dismiss()
