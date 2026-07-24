@@ -58,8 +58,12 @@ extension Workout {
         exercises.sorted { $0.position < $1.position }
     }
 
-    /// Completed sets across the whole session.
-    var completedSetCount: Int {
-        exercises.reduce(0) { $0 + $1.sets.filter(\.completed).count }
+    /// Whether the user has actually put anything into this session: a set checked
+    /// off, or reps/weight typed into one. What separates a real workout from the
+    /// scaffold a routine seeds when the session starts.
+    var hasLoggedWork: Bool {
+        exercises.contains { exercise in
+            exercise.sets.contains { $0.completed || $0.reps > 0 || $0.weight > 0 }
+        }
     }
 }

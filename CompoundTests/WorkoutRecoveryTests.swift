@@ -6,11 +6,11 @@ import XCTest
 private struct StubWorkout: RecoverableWorkout {
     let id = UUID()
     let startedAt: Date
-    let completedSetCount: Int
+    let hasLoggedWork: Bool
 
-    init(startedAt: TimeInterval, completedSetCount: Int) {
+    init(startedAt: TimeInterval, hasLoggedWork: Bool) {
         self.startedAt = Date(timeIntervalSince1970: startedAt)
-        self.completedSetCount = completedSetCount
+        self.hasLoggedWork = hasLoggedWork
     }
 }
 
@@ -22,27 +22,43 @@ final class WorkoutRecoveryTests: XCTestCase {
         XCTAssertTrue(plan.discard.isEmpty)
     }
 
-    func testUntouchedWorkoutIsDiscarded() {
-        // Started from a routine but nothing logged -> just seeded scaffolding.
-        let scaffold = StubWorkout(startedAt: 100, completedSetCount: 0)
-        let plan = WorkoutRecovery.plan(for: [scaffold])
-        XCTAssertNil(plan.resume)
-        XCTAssertEqual(plan.discard.map(\.id), [scaffold.id])
-    }
-
     func testWorkoutWithLoggedSetsIsResumed() {
-        let real = StubWorkout(startedAt: 100, completedSetCount: 3)
+        let real = StubWorkout(startedAt: 100, hasLoggedWork: true)
         let plan = WorkoutRecovery.plan(for: [real])
         XCTAssertEqual(plan.resume?.id, real.id)
         XCTAssertTrue(plan.discard.isEmpty)
     }
 
-    func testMostRecentSurvivesAndTheRestAreDiscarded() {
-        let older = StubWorkout(startedAt: 100, completedSetCount: 2)
-        let newer = StubWorkout(startedAt: 500, completedSetCount: 1)
-        let empty = StubWorkout(startedAt: 900, completedSetCount: 0)
-        let plan = WorkoutRecovery.plan(for: [older, newer, empty])
+    func testUntouchedWorkoutIsStillResumed() {
+        // Nothing logged yet, but the session was interrupted, not abandoned.
+        let scaffold = StubWorkout(startedAt: 100, hasLoggedWork: false)
+        let plan = WorkoutRecovery.plan(for: [scaffold])
+        XCTAssertEqual(plan.resume?.id, scaffold.id)
+        XCTAssertTrue(plan.discard.isEmpty)
+    }
+
+    func testAgeAloneNeverCondemnsASession() {
+        // However long it has been sitting, only Finish or Discard ends it.
+        let ancient = StubWorkout(startedAt: 0, hasLoggedWork: false)
+        let plan = WorkoutRecovery.plan(for: [ancient])
+        XCTAssertEqual(plan.resume?.id, ancient.id)
+        XCTAssertTrue(plan.discard.isEmpty)
+    }
+
+    func testMostRecentWins() {
+        let older = StubWorkout(startedAt: 100, hasLoggedWork: true)
+        let newer = StubWorkout(startedAt: 500, hasLoggedWork: true)
+        let plan = WorkoutRecovery.plan(for: [older, newer])
         XCTAssertEqual(plan.resume?.id, newer.id)
-        XCTAssertEqual(Set(plan.discard.map(\.id)), [older.id, empty.id])
+        // The one not adopted still has work in it, so it is kept, not deleted.
+        XCTAssertTrue(plan.discard.isEmpty)
+    }
+
+    func testLoggedWorkOutranksAMoreRecentScaffold() {
+        let real = StubWorkout(startedAt: 100, hasLoggedWork: true)
+        let scaffold = StubWorkout(startedAt: 900, hasLoggedWork: false)
+        let plan = WorkoutRecovery.plan(for: [real, scaffold])
+        XCTAssertEqual(plan.resume?.id, real.id)
+        XCTAssertEqual(plan.discard.map(\.id), [scaffold.id])
     }
 }
