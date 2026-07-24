@@ -71,7 +71,14 @@ struct RootTabView: View {
         .onChange(of: scenePhase) { _, phase in
             // A rest that ran out while suspended is settled on return — without
             // a cue, since it finished while nobody was looking.
-            if phase == .active { active.rest.reconcile() }
+            if phase == .active {
+                active.rest.reconcile()
+            } else {
+                // Leaving the app is the last moment a force-quit can be seen
+                // coming, so the session's typed reps and weights go to disk now
+                // rather than riding on autosave.
+                try? context.save()
+            }
         }
         .onOpenURL { url in
             // The Live Activity has one destination: bring the workout back up.
