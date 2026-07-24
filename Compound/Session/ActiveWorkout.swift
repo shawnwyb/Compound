@@ -50,11 +50,11 @@ final class ActiveWorkout {
     }
 
     /// Adopt an already-running workout that the app lost track of (crash or
-    /// force-quit). Comes back collapsed to the mini-bar rather than full-screen,
-    /// so relaunching doesn't drop the user into an editor they didn't ask for.
+    /// force-quit). Comes back full-screen: the session was interrupted, not
+    /// stopped, so relaunching puts the user back where they were.
     func resume(_ workout: Workout) {
         self.workout = workout
-        isMinimized = true
+        isMinimized = false
         rest.stop()
         startActivity()
         notifications.requestAuthorization()
