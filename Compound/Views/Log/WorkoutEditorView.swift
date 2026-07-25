@@ -514,10 +514,14 @@ private struct WorkoutSetRow: View {
         SetInputRow(
             setNumber: set.setNumber,
             unit: unit,
-            ghostWeight: ghostSetNumber(ghostWeight ?? 0),
-            ghostReps: ghostSetNumber(Double(ghostReps ?? 0)),
-            initialWeight: set.weight != 0 ? formattedSetNumber(set.weight) : "",
-            initialReps: set.reps != 0 ? "\(set.reps)" : "",
+            // Rendered through each field's own budget, so what's shown is
+            // always something the field would take back: a converted weight
+            // rounds to one decimal, and a number from before the budget
+            // existed shows as nothing rather than as a truncated stranger.
+            ghostWeight: NumberLimit.weight.text(for: ghostWeight ?? 0),
+            ghostReps: NumberLimit.reps.text(for: Double(ghostReps ?? 0)),
+            initialWeight: set.weight != 0 ? NumberLimit.weight.text(for: set.weight) : "",
+            initialReps: set.reps != 0 ? NumberLimit.reps.text(for: Double(set.reps)) : "",
             note: $set.note,
             completed: completed,
             // Only a live session adopts the ghost weight: doing it while editing

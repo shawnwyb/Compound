@@ -42,28 +42,19 @@ final class WeightTextTests: XCTestCase {
 
     func testNonFiniteWeightsNeverReachTheIntConversion() {
         // Would trap rather than return, so reaching the assert is the test.
-        XCTAssertEqual(formattedSetNumber(.infinity), "")
-        XCTAssertEqual(formattedSetNumber(-.infinity), "")
-        XCTAssertEqual(formattedSetNumber(.nan), "")
-        XCTAssertEqual(ghostSetNumber(.infinity), "")
         XCTAssertEqual(formatWeight(.infinity), "—")
         XCTAssertEqual(formatWeight(.nan), "—")
     }
 
     /// A weight past `Int.max` is finite, so the non-finite guard lets it by —
-    /// twenty typed digits is all it takes, and `Int(_:)` traps on every one.
+    /// twenty digits is all it takes, and `Int(_:)` traps on every one. The
+    /// fields refuse those now, but stored ones still have to draw.
     func testWeightsTooLargeForAnIntStillFormat() {
         XCTAssertEqual(formatWeight(1e30), "1000000000000000019884624838656")
-        XCTAssertEqual(formattedSetNumber(1e30), "1000000000000000019884624838656")
         XCTAssertEqual(formatWeight(Double(Int.max) * 2), "18446744073709551616")
-        XCTAssertEqual(formattedSetNumber(Double(Int.max) * 2), "18446744073709551616")
     }
 
     func testFiniteWeightsStillFormatAsBefore() {
-        XCTAssertEqual(formattedSetNumber(135), "135")
-        XCTAssertEqual(formattedSetNumber(137.5), "137.5")
-        XCTAssertEqual(ghostSetNumber(0), "0")
-        XCTAssertEqual(ghostSetNumber(135), "135")
         XCTAssertEqual(formatWeight(180), "180")
         XCTAssertEqual(formatWeight(180.4), "180.4")
     }

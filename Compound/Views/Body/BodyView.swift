@@ -278,8 +278,13 @@ struct DailyEntryFields: View {
                         .multilineTextAlignment(.trailing)
                         .monospacedDigit()
                         .frame(maxWidth: numberFieldWidth)
+                        // Writing the filtered text back is what stops the
+                        // field past its budget: the extra digit never lands.
+                        // The re-entrant change this causes is idempotent.
                         .onChange(of: weightText) { _, new in
-                            entry.bodyWeight = WeightText.value(new)
+                            let limited = NumberLimit.weight.filtered(new)
+                            if limited != new { weightText = limited }
+                            entry.bodyWeight = WeightText.value(limited)
                         }
                     Text(unit).foregroundStyle(.secondary)
                 }
@@ -303,7 +308,9 @@ struct DailyEntryFields: View {
                         .monospacedDigit()
                         .frame(maxWidth: numberFieldWidth)
                         .onChange(of: caloriesText) { _, new in
-                            entry.calories = Int(new.filter(\.isNumber))
+                            let limited = NumberLimit.calories.filtered(new)
+                            if limited != new { caloriesText = limited }
+                            entry.calories = Int(limited)
                         }
                     Text("kcal").foregroundStyle(.secondary)
                 }
@@ -317,7 +324,9 @@ struct DailyEntryFields: View {
                         .monospacedDigit()
                         .frame(maxWidth: numberFieldWidth)
                         .onChange(of: proteinText) { _, new in
-                            entry.protein = Int(new.filter(\.isNumber))
+                            let limited = NumberLimit.protein.filtered(new)
+                            if limited != new { proteinText = limited }
+                            entry.protein = Int(limited)
                         }
                     Text("g").foregroundStyle(.secondary)
                 }
@@ -425,10 +434,13 @@ struct DailyEntryFields: View {
         }
     }
 
+    /// Fills the fields from the entry. Anything already saved that the field
+    /// would no longer accept shows as blank rather than as a truncated number
+    /// the user never typed — the stored value stays until it's typed over.
     private func seed() {
-        weightText = entry.bodyWeight.map(formatWeight) ?? ""
-        caloriesText = entry.calories.map(String.init) ?? ""
-        proteinText = entry.protein.map(String.init) ?? ""
+        weightText = entry.bodyWeight.map(NumberLimit.weight.text(for:)) ?? ""
+        caloriesText = entry.calories.map { NumberLimit.calories.text(for: Double($0)) } ?? ""
+        proteinText = entry.protein.map { NumberLimit.protein.text(for: Double($0)) } ?? ""
     }
 
     /// Empties the day's four fields. The typed-text state is re-seeded by hand:

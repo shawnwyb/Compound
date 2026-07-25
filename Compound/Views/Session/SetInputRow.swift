@@ -42,12 +42,12 @@ struct SetInputRow: View {
             circle
 
             column(label: unit.capitalized, width: stacked ? nil : weightWidth) {
-                numberField(text: $weightText, ghost: ghostWeight, keyboard: .decimalPad, onChange: onWeightChange)
+                numberField(text: $weightText, ghost: ghostWeight, keyboard: .decimalPad, limit: .weight, onChange: onWeightChange)
                     .accessibilityLabel(unit.capitalized)
             }
 
             column(label: "Reps", width: stacked ? nil : repsWidth) {
-                numberField(text: $repsText, ghost: ghostReps, keyboard: .numberPad) { value in
+                numberField(text: $repsText, ghost: ghostReps, keyboard: .numberPad, limit: .reps) { value in
                     onRepsChange(value)
                     // Assigning the text is enough — the weight field's own
                     // `onChange` carries it down to the model from there.
@@ -121,10 +121,15 @@ struct SetInputRow: View {
 
     /// A borderless numeric field showing `ghost` in grey while empty. The ghost
     /// is a non-interactive hint, so leaving it untouched types nothing.
+    ///
+    /// `limit` is enforced on the way in — the filtered text is written back to
+    /// the field, so a digit past the budget never appears and the model only
+    /// ever sees a number the field would accept.
     private func numberField(
         text: Binding<String>,
         ghost: String,
         keyboard: UIKeyboardType,
+        limit: NumberLimit,
         onChange: @escaping (String) -> Void
     ) -> some View {
         ZStack(alignment: .leading) {
@@ -135,28 +140,15 @@ struct SetInputRow: View {
             }
             TextField("", text: text)
                 .keyboardType(keyboard)
-                .onChange(of: text.wrappedValue) { _, value in onChange(value) }
+                .onChange(of: text.wrappedValue) { _, value in
+                    let limited = limit.filtered(value)
+                    if limited != value { text.wrappedValue = limited }
+                    onChange(limited)
+                }
         }
         .font(.title3.weight(.semibold))
         .frame(maxWidth: .infinity, alignment: .leading)
     }
-}
-
-/// Formats a numeric set value, dropping a trailing `.0` (135.0 -> "135"). A
-/// value that isn't a real number formats as nothing — a field or ghost showing
-/// "inf" is no more use than a blank one.
-///
-/// The whole-number branch goes through `%.0f`, not `Int(_:)`: that traps on
-/// any value it can't represent, so a weight past `Int.max` — twenty typed
-/// digits — took the row down as soon as it drew.
-func formattedSetNumber(_ value: Double) -> String {
-    guard value.isFinite else { return "" }
-    return value == value.rounded() ? String(format: "%.0f", value) : String(value)
-}
-
-/// The grey ghost string for a value — "0" when there is nothing to hint.
-func ghostSetNumber(_ value: Double) -> String {
-    value == 0 ? "0" : formattedSetNumber(value)
 }
 
 /// The weight a row should adopt when reps are typed into a set whose weight is
