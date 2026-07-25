@@ -20,6 +20,12 @@ struct StatsView: View {
     @State private var bodyMetricSelection: BodyMetric?
     @State private var bodyRange: StatsRange = .month3
 
+    /// Everything on this screen, derived once per data change rather than once
+    /// per render — see `StatsDigest` for why building it in `body` is a trap.
+    /// nil until the first build, which is a blank frame rather than a flash of
+    /// the empty state.
+    @State private var digest: StatsDigest?
+
     private let calendar = Calendar.current
 
     /// What a chart/summary is currently plotting, so formatting can adapt.
@@ -36,52 +42,80 @@ struct StatsView: View {
 
     // MARK: - Body
 
-    var body: some View {
-        // One pass over the store per render. These values used to be computed
-        // properties, so `body` re-walked the whole history for each read —
-        // faulting every exercise and set back in a dozen times over.
-        let digest = StatsDigest(workouts: workouts, entries: dailyEntries)
+    /// A cheap fingerprint of the store, used to notice data changes without
+    /// reading any of it: counts, plus the newest workout's identity and finish
+    /// state (which is what changes when a session is finished). Deliberately
+    /// never touches exercises or sets — reading those here is exactly the
+    /// dependency this screen is trying not to have. Anything it misses, such
+    /// as an edit to an old workout, is caught by the rebuild on appear.
+    private var dataRevision: Int {
+        var hasher = Hasher()
+        hasher.combine(workouts.count)
+        hasher.combine(workouts.first?.id)
+        hasher.combine(workouts.first?.finishedAt)
+        hasher.combine(dailyEntries.count)
+        return hasher.finalize()
+    }
 
+    private func rebuildDigest() {
+        digest = StatsDigest(workouts: workouts, entries: dailyEntries)
+    }
+
+    var body: some View {
         NavigationStack {
             Group {
-                if !digest.hasAnyData {
-                    ContentUnavailableView {
-                        Label("No Stats Yet", systemImage: "chart.xyaxis.line")
-                    } description: {
-                        // One finished workout is enough to clear this, and any
-                        // Body figure counts — calories and protein, not just
-                        // weight. Keep this in step with `StatsDigest.hasAnyData`.
-                        Text("Progress appears once you've finished a workout or logged something on the Body tab.")
-                    }
+                if let digest {
+                    content(digest)
                 } else {
-                    List {
-                        if digest.hasFinishedWorkouts {
-                            Section {
-                                overviewGrid(digest)
-                            } header: {
-                                Text("Overview").alignedSectionHeader()
-                            }
-                        }
-                        if digest.hasAnyExercise {
-                            Section {
-                                liftsSection(digest)
-                            } header: {
-                                Text("Lifts").alignedSectionHeader()
-                            }
-                        }
-                        if digest.hasAnyBody {
-                            Section {
-                                bodySection(digest)
-                            } header: {
-                                Text("Body").alignedSectionHeader()
-                            }
-                        }
-                    }
-                    .contentMargins(.horizontal, 16, for: .scrollContent)
-                    .listSectionSpacing(16)
+                    Color.clear
                 }
             }
             .navigationTitle("Stats")
+        }
+        // Outside `body` on purpose: the digest walks every set, and a read of
+        // a model property during a body evaluation subscribes this view to
+        // that object for the life of the screen.
+        .onAppear(perform: rebuildDigest)
+        .onChange(of: dataRevision) { _, _ in rebuildDigest() }
+    }
+
+    @ViewBuilder
+    private func content(_ digest: StatsDigest) -> some View {
+        if !digest.hasAnyData {
+            ContentUnavailableView {
+                Label("No Stats Yet", systemImage: "chart.xyaxis.line")
+            } description: {
+                // One finished workout is enough to clear this, and any Body
+                // figure counts — calories and protein, not just weight. Keep
+                // this in step with `StatsDigest.hasAnyData`.
+                Text("Progress appears once you've finished a workout or logged something on the Body tab.")
+            }
+        } else {
+            List {
+                if digest.hasFinishedWorkouts {
+                    Section {
+                        overviewGrid(digest)
+                    } header: {
+                        Text("Overview").alignedSectionHeader()
+                    }
+                }
+                if digest.hasAnyExercise {
+                    Section {
+                        liftsSection(digest)
+                    } header: {
+                        Text("Lifts").alignedSectionHeader()
+                    }
+                }
+                if digest.hasAnyBody {
+                    Section {
+                        bodySection(digest)
+                    } header: {
+                        Text("Body").alignedSectionHeader()
+                    }
+                }
+            }
+            .contentMargins(.horizontal, 16, for: .scrollContent)
+            .listSectionSpacing(16)
         }
     }
 
@@ -89,7 +123,7 @@ struct StatsView: View {
 
     private func overviewGrid(_ digest: StatsDigest) -> some View {
         HStack(spacing: 8) {
-            statTile(title: "Workouts", value: "\(digest.totals.workoutCount)")
+            statTile(title: "Workouts", value: "\(digest.workoutCount)")
             statTile(title: "Streak", value: "\(digest.streak.current)d")
             statTile(title: "Last 7d", value: "\(digest.streak.daysLast7)")
         }

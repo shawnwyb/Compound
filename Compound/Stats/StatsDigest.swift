@@ -8,17 +8,25 @@ import Foundation
 /// each series, and every rebuild faulted every workout's exercises and sets
 /// back in from SwiftData. Tapping a segmented control paid for all of it.
 ///
-/// Nothing is cached across renders: the digest is rebuilt whenever `body`
-/// runs, so the numbers stay exactly as fresh as before. Bridging SwiftData
-/// models into plain values is the expensive half and has to stay on the main
-/// actor (models are not `Sendable`); everything after it operates on value
-/// types and is cheap.
+/// Build this *outside* `body` and hold it in `@State`. Bridging SwiftData
+/// models into plain values reads `reps`/`weight`/`completed` on every set in
+/// the store, and any such read performed during a `body` evaluation makes the
+/// view a dependent of every one of those objects — after which each keystroke
+/// in a live workout invalidates the Stats screen and rebuilds all of this.
+/// Measured on a 400-session store: ~95ms a rebuild, two to three rebuilds per
+/// typed character, on the main actor, with the tab off screen.
+///
+/// It still has to be built on the main actor (models are not `Sendable`);
+/// everything after the bridge operates on value types and is cheap.
 struct StatsDigest {
     /// Finished sessions as plain values — the input to every calculation below.
     let snapshot: [StatsWorkout]
     let bodyData: [BodyPoint]
     let tracked: [TrackedExercise]
-    let totals: StatsTotals
+    /// The one total the Overview shows. The rest of `StatsCalculator.totals` —
+    /// volume, completed sets, training days — was computed on every render and
+    /// never displayed; two of those are full walks of every set.
+    let workoutCount: Int
     let streak: StreakStats
     /// Body metrics with at least one logged value, so the Body section can be
     /// hidden without running each metric's series to find out.
@@ -32,7 +40,7 @@ struct StatsDigest {
             BodyPoint(date: $0.date, bodyWeight: $0.bodyWeight, calories: $0.calories, protein: $0.protein)
         }
         tracked = StatsCalculator.trackedExercises(in: snapshot)
-        totals = StatsCalculator.totals(in: snapshot, calendar: calendar)
+        workoutCount = snapshot.count
         streak = StatsCalculator.streak(in: snapshot, calendar: calendar)
 
         var logged: Set<BodyMetric> = []
@@ -43,6 +51,10 @@ struct StatsDigest {
         }
         bodyMetricsWithData = logged
     }
+
+    /// What the screen shows before its first build — a blank frame, not the
+    /// "No Stats Yet" empty state, which would flash on the way in.
+    static let empty = StatsDigest(workouts: [], entries: [])
 
     var hasFinishedWorkouts: Bool { !snapshot.isEmpty }
     var hasAnyExercise: Bool { !tracked.isEmpty }
