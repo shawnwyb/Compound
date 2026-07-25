@@ -42,7 +42,7 @@ struct ExercisePickerView: View {
                 }
             }
             .contentMargins(.horizontal, 16, for: .scrollContent)
-            .listSectionSpacing(.compact)
+            .listSectionSpacing(16)
             .searchable(text: $search, prompt: "Search exercises")
             .navigationTitle("Add Exercises")
             .navigationBarTitleDisplayMode(.inline)

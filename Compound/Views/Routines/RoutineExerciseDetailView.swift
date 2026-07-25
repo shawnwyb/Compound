@@ -71,7 +71,7 @@ struct RoutineExerciseDetailView: View {
             }
         }
         .contentMargins(.horizontal, 16, for: .scrollContent)
-        .listSectionSpacing(.compact)
+        .listSectionSpacing(16)
         .scrollDismissesKeyboard(.interactively)
         .navigationTitle(routineExercise.exercise?.name ?? "Exercise")
         .navigationBarTitleDisplayMode(.inline)

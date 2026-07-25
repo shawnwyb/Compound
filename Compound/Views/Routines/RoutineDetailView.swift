@@ -57,7 +57,7 @@ struct RoutineDetailView: View {
             }
         }
         .contentMargins(.horizontal, 16, for: .scrollContent)
-        .listSectionSpacing(.compact)
+        .listSectionSpacing(16)
         .environment(\.editMode, $editMode)
         .navigationTitle(routine.name.isEmpty ? "Untitled" : routine.name)
         .navigationBarTitleDisplayMode(.inline)
@@ -197,7 +197,7 @@ private struct PrefillOptionsView: View {
             }
         }
         .contentMargins(.horizontal, 16, for: .scrollContent)
-        .listSectionSpacing(.compact)
+        .listSectionSpacing(16)
         .navigationTitle("Starting Weights & Reps")
         .navigationBarTitleDisplayMode(.inline)
     }

@@ -77,7 +77,7 @@ struct LogView: View {
                         }
                     }
                     .contentMargins(.horizontal, 0, for: .scrollContent)
-                    .listSectionSpacing(.compact)
+                    .listSectionSpacing(16)
                 }
             }
             .navigationTitle("Log")

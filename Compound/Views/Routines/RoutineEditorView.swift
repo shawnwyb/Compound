@@ -45,7 +45,7 @@ struct RoutineEditorView: View {
                 }
             }
             .contentMargins(.horizontal, 16, for: .scrollContent)
-            .listSectionSpacing(.compact)
+            .listSectionSpacing(16)
             .navigationTitle(isNew ? "New Routine" : "Edit Routine")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

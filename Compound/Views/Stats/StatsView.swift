@@ -75,7 +75,7 @@ struct StatsView: View {
                         }
                     }
                     .contentMargins(.horizontal, 16, for: .scrollContent)
-                    .listSectionSpacing(.compact)
+                    .listSectionSpacing(16)
                 }
             }
             .navigationTitle("Stats")

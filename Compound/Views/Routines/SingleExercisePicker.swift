@@ -47,7 +47,7 @@ struct SingleExercisePicker: View {
                 }
             }
             .contentMargins(.horizontal, 16, for: .scrollContent)
-            .listSectionSpacing(.compact)
+            .listSectionSpacing(16)
             .searchable(text: $search, prompt: "Search exercises")
             .navigationTitle(title)
             .navigationBarTitleDisplayMode(.inline)

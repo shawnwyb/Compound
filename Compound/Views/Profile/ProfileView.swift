@@ -128,7 +128,7 @@ struct ProfileView: View {
             #endif
         }
         .contentMargins(.horizontal, 16, for: .scrollContent)
-        .listSectionSpacing(.compact)
+        .listSectionSpacing(16)
         .sheet(isPresented: $showAddPreset) {
             AddRestPresetSheet(settings: settings)
         }
