@@ -188,6 +188,24 @@ final class StatsCalculatorTests: XCTestCase {
         XCTAssertEqual(tracked.first?.lastPerformed, day(2026, 7, 5))
     }
 
+    /// `exerciseName` is snapshotted per performance, so an exercise renamed
+    /// between sessions has two names in history. The picker shows the newest —
+    /// and says so no matter which order the workouts arrive in, since that
+    /// order is set by a `@Query` sort this calculation can't see.
+    func testTrackedExerciseTakesItsNameFromTheMostRecentPerformance() {
+        let old = workout(on: day(2026, 7, 1), exercises: [
+            exercise(id: bench, name: "Bench", groupID: chest, group: "Chest", sets: [set(5, 100)])
+        ])
+        let recent = workout(on: day(2026, 7, 5), exercises: [
+            exercise(id: bench, name: "Barbell Bench Press", groupID: chest, group: "Chest", sets: [set(5, 105)])
+        ])
+        for workouts in [[recent, old], [old, recent]] {
+            let tracked = StatsCalculator.trackedExercises(in: workouts)
+            XCTAssertEqual(tracked.map(\.name), ["Barbell Bench Press"])
+            XCTAssertEqual(tracked.first?.lastPerformed, day(2026, 7, 5))
+        }
+    }
+
     func testTrackedExercisesSkipsExercisesWithoutCompletedWeight() {
         let workouts = [
             workout(on: day(2026, 7, 1), exercises: [

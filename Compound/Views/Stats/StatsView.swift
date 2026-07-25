@@ -7,6 +7,7 @@ import Charts
 /// metrics (bodyweight / calories / protein). Each explorer shares the same
 /// picker → range → line chart → summary layout.
 struct StatsView: View {
+    @Environment(\.scenePhase) private var scenePhase
     @Query(sort: \Workout.date, order: .reverse) private var workouts: [Workout]
     @Query(sort: \DailyEntry.date) private var dailyEntries: [DailyEntry]
     @Query private var settingsRows: [Settings]
@@ -77,6 +78,17 @@ struct StatsView: View {
         // that object for the life of the screen.
         .onAppear(perform: rebuildDigest)
         .onChange(of: dataRevision) { _, _ in rebuildDigest() }
+        // Every number here is measured from "today", and the digest froze that
+        // when it was built. Left open on this tab overnight, nothing else
+        // would notice: `onAppear` doesn't fire again on foreground and no data
+        // changed. Guarded on the day actually turning so unlocking your phone
+        // doesn't pay for a rebuild it doesn't need.
+        .onChange(of: scenePhase) { _, phase in
+            guard phase == .active, let digest,
+                  !calendar.isDate(digest.builtAt, inSameDayAs: .now)
+            else { return }
+            rebuildDigest()
+        }
     }
 
     @ViewBuilder

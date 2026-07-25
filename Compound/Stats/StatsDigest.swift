@@ -31,8 +31,22 @@ struct StatsDigest {
     /// Body metrics with at least one logged value, so the Body section can be
     /// hidden without running each metric's series to find out.
     let bodyMetricsWithData: Set<BodyMetric>
+    /// The one "now" the whole screen is measured from. The streak's idea of
+    /// today and the charts' trailing windows have to be the same day, and they
+    /// aren't if each reads the clock when it happens to run. It's also what
+    /// tells the view its numbers have outlived the day they were built on.
+    let builtAt: Date
+    /// Held so the trailing-window filters below measure from the same calendar
+    /// as the streak did.
+    private let calendar: Calendar
 
-    init(workouts: [Workout], entries: [DailyEntry], calendar: Calendar = .current) {
+    init(
+        workouts: [Workout],
+        entries: [DailyEntry],
+        calendar: Calendar = .current,
+        now: Date = .now
+    ) {
+        builtAt = now
         // In-progress sessions (`isInProgress`) never contribute to totals,
         // streaks, PRs, or charts.
         snapshot = StatsSnapshot.from(workouts.filter { !$0.isInProgress })
@@ -41,7 +55,8 @@ struct StatsDigest {
         }
         tracked = StatsCalculator.trackedExercises(in: snapshot)
         workoutCount = snapshot.count
-        streak = StatsCalculator.streak(in: snapshot, calendar: calendar)
+        streak = StatsCalculator.streak(in: snapshot, calendar: calendar, now: now)
+        self.calendar = calendar
 
         var logged: Set<BodyMetric> = []
         for point in bodyData {
@@ -74,13 +89,19 @@ struct StatsDigest {
         return BodyMetric.allCases.first { bodyMetricsWithData.contains($0) } ?? .bodyWeight
     }
 
+    /// These run per render, so they take their "now" from the digest rather
+    /// than the clock — otherwise the window the chart draws and the streak
+    /// beside it can end up on different days.
     func liftsPoints(exerciseID: UUID?, metric: ExerciseMetric, range: StatsRange) -> [SeriesPoint] {
         guard let exerciseID else { return [] }
-        let all = StatsCalculator.exerciseSeries(exerciseID: exerciseID, metric: metric, in: snapshot)
-        return StatsCalculator.filter(all, range: range)
+        let all = StatsCalculator.exerciseSeries(
+            exerciseID: exerciseID, metric: metric, in: snapshot, calendar: calendar
+        )
+        return StatsCalculator.filter(all, range: range, now: builtAt, calendar: calendar)
     }
 
     func bodyPoints(metric: BodyMetric, range: StatsRange) -> [SeriesPoint] {
-        StatsCalculator.filter(StatsCalculator.bodySeries(metric: metric, in: bodyData), range: range)
+        let all = StatsCalculator.bodySeries(metric: metric, in: bodyData, calendar: calendar)
+        return StatsCalculator.filter(all, range: range, now: builtAt, calendar: calendar)
     }
 }

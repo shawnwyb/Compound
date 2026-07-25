@@ -99,7 +99,14 @@ enum StatsCalculator {
                 let hasWork = exercise.sets.contains { $0.completed && $0.weight > 0 && $0.reps > 0 }
                 guard hasWork else { continue }
                 if var acc = byID[exercise.exerciseID] {
-                    acc.name = exercise.exerciseName
+                    // The name comes from the most recent performance, not from
+                    // whichever workout this loop happens to see last.
+                    // `exerciseName` is a per-workout snapshot, so taking the
+                    // last one made the answer depend on the order the caller
+                    // passed its workouts in — an order decided by a `@Query`
+                    // sort in another file, with nothing here to notice if it
+                    // changed. Compared before `lastPerformed` moves.
+                    if workout.date > acc.lastPerformed { acc.name = exercise.exerciseName }
                     acc.lastPerformed = max(acc.lastPerformed, workout.date)
                     byID[exercise.exerciseID] = acc
                 } else {
