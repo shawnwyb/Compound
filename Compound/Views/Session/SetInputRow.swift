@@ -24,7 +24,7 @@ struct SetInputRow: View {
     @State private var repsText = ""
 
     var body: some View {
-        HStack(alignment: .center, spacing: 14) {
+        HStack(alignment: .center, spacing: 8) {
             circle
 
             column(label: unit.capitalized, width: 66) {
@@ -35,13 +35,13 @@ struct SetInputRow: View {
                 numberField(text: $repsText, ghost: ghostReps, keyboard: .numberPad, onChange: onRepsChange)
             }
 
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: 4) {
                 Text("Notes").font(.caption).foregroundStyle(.secondary)
                 TextField("", text: $note).font(.body)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(.vertical, 6)
+        .padding(.vertical, 8)
         .onAppear {
             if weightText.isEmpty { weightText = initialWeight }
             if repsText.isEmpty { repsText = initialReps }
@@ -72,7 +72,7 @@ struct SetInputRow: View {
         width: CGFloat,
         @ViewBuilder content: () -> Content
     ) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
+        VStack(alignment: .leading, spacing: 4) {
             Text(label)
                 .font(.caption)
                 .foregroundStyle(.secondary)

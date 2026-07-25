@@ -42,7 +42,7 @@ struct LogView: View {
                         if let inProgress {
                             Section {
                                 InProgressCard(workout: inProgress) { resume(inProgress) }
-                                    .listRowInsets(EdgeInsets(top: 5, leading: 16, bottom: 5, trailing: 16))
+                                    .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
                                     .listRowSeparator(.hidden)
                                     .listRowBackground(Color.clear)
                             }
@@ -51,7 +51,7 @@ struct LogView: View {
                             Section {
                                 ForEach(section.items) { workout in
                                     WorkoutRow(workout: workout)
-                                        .listRowInsets(EdgeInsets(top: 5, leading: 16, bottom: 5, trailing: 16))
+                                        .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
                                         .listRowSeparator(.hidden)
                                         .listRowBackground(Color.clear)
                                         .background {
@@ -156,9 +156,9 @@ private struct InProgressCard: View {
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
-            .padding(14)
+            .padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(.tint.opacity(0.12), in: RoundedRectangle(cornerRadius: 14))
+            .background(.tint.opacity(0.12), in: RoundedRectangle(cornerRadius: 16))
         }
         .buttonStyle(.plain)
     }
@@ -168,7 +168,7 @@ private struct WorkoutRow: View {
     let workout: Workout
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .firstTextBaseline) {
                 Text(workout.routineName.isEmpty ? "Workout" : workout.routineName)
                     .font(.headline)
@@ -184,7 +184,7 @@ private struct WorkoutRow: View {
                 .foregroundStyle(.secondary)
 
             if !workout.orderedExercises.isEmpty {
-                VStack(alignment: .leading, spacing: 3) {
+                VStack(alignment: .leading, spacing: 4) {
                     ForEach(workout.orderedExercises) { exercise in
                         Text("\(exercise.sets.count)× \(exercise.exerciseName)")
                             .font(.subheadline)
@@ -192,9 +192,9 @@ private struct WorkoutRow: View {
                 }
             }
         }
-        .padding(14)
+        .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.fill.tertiary, in: RoundedRectangle(cornerRadius: 14))
+        .background(.fill.tertiary, in: RoundedRectangle(cornerRadius: 16))
     }
 
     /// Session length, rounded to whole minutes.

@@ -85,7 +85,7 @@ struct StatsView: View {
     // MARK: - Overview
 
     private func overviewGrid(_ digest: StatsDigest) -> some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 8) {
             statTile(title: "Workouts", value: "\(digest.totals.workoutCount)")
             statTile(title: "Streak", value: "\(digest.streak.current)d")
             statTile(title: "Last 7d", value: "\(digest.streak.daysLast7)")
@@ -106,8 +106,8 @@ struct StatsView: View {
                 .minimumScaleFactor(0.7)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(12)
-        .background(.fill.tertiary, in: RoundedRectangle(cornerRadius: 12))
+        .padding(16)
+        .background(.fill.tertiary, in: RoundedRectangle(cornerRadius: 16))
     }
 
     // MARK: - Lifts explorer
@@ -218,7 +218,7 @@ struct StatsView: View {
             }
             .chartYScale(domain: yDomain(points))
             .frame(height: 220)
-            .padding(.vertical, 4)
+            .padding(.vertical, 8)
             .accessibilityLabel(title(kind))
         }
     }

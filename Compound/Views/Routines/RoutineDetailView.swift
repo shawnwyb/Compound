@@ -207,7 +207,7 @@ private struct PrefillOptionsView: View {
     ) -> some View {
         Button(action: action) {
             HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 3) {
+                VStack(alignment: .leading, spacing: 4) {
                     Text(title)
                         .foregroundStyle(.primary)
                     Text(detail)

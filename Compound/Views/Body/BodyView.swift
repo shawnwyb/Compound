@@ -58,8 +58,8 @@ struct BodyView: View {
                 if series.count >= 2 {
                     Section {
                         weightChart(series)
-                            .frame(height: 180)
-                            .padding(.vertical, 4)
+                            .frame(height: 184)
+                            .padding(.vertical, 8)
                         if let latest = series.last?.bodyWeight {
                             LabeledContent("Latest", value: "\(formatWeight(latest)) \(unit)")
                                 .font(.subheadline)
@@ -124,10 +124,10 @@ struct BodyView: View {
             Button {
                 showDayPicker = true
             } label: {
-                VStack(spacing: 2) {
+                VStack(spacing: 4) {
                     Text(isToday ? "Today" : selectedDay.formatted(.dateTime.weekday(.wide)))
                         .font(.headline)
-                    HStack(spacing: 3) {
+                    HStack(spacing: 4) {
                         Text(selectedDay.formatted(.dateTime.month(.abbreviated).day().year()))
                         Image(systemName: "chevron.down")
                             .font(.caption2)
@@ -246,8 +246,8 @@ struct DailyEntryFields: View {
     var body: some View {
         Group {
             LabeledContent("Weight") {
-                HStack(spacing: 6) {
-                    TextField("—", text: $weightText)
+                HStack(spacing: 8) {
+                    TextField("—", text:$weightText)
                         .keyboardType(.decimalPad)
                         .multilineTextAlignment(.trailing)
                         .monospacedDigit()
@@ -259,15 +259,15 @@ struct DailyEntryFields: View {
                 }
             }
 
-            VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: 8) {
                 Text("Food")
                 foodEditor
             }
-            .padding(.vertical, 2)
+            .padding(.vertical, 4)
 
             LabeledContent("Calories") {
-                HStack(spacing: 6) {
-                    TextField("—", text: $caloriesText)
+                HStack(spacing: 8) {
+                    TextField("—", text:$caloriesText)
                         .keyboardType(.numberPad)
                         .multilineTextAlignment(.trailing)
                         .font(.body.weight(.semibold))
@@ -281,8 +281,8 @@ struct DailyEntryFields: View {
             }
 
             LabeledContent("Protein") {
-                HStack(spacing: 6) {
-                    TextField("—", text: $proteinText)
+                HStack(spacing: 8) {
+                    TextField("—", text:$proteinText)
                         .keyboardType(.numberPad)
                         .multilineTextAlignment(.trailing)
                         .monospacedDigit()
@@ -326,7 +326,7 @@ private struct HistoryRow: View {
     let unit: String
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 3) {
+        VStack(alignment: .leading, spacing: 4) {
             HStack {
                 Text(entry.date.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day()))
                     .font(.headline)
@@ -345,7 +345,7 @@ private struct HistoryRow: View {
                     .lineLimit(1)
             }
         }
-        .padding(.vertical, 2)
+        .padding(.vertical, 4)
         .contentShape(Rectangle())
     }
 

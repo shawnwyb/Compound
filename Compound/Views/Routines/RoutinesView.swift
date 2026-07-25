@@ -89,14 +89,14 @@ private struct RoutineRow: View {
     let routine: Routine
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
+        VStack(alignment: .leading, spacing: 4) {
             Text(routine.name.isEmpty ? "Untitled" : routine.name)
                 .font(.headline)
             Text(exerciseSummary)
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
         }
-        .padding(.vertical, 2)
+        .padding(.vertical, 4)
     }
 
     private var exerciseSummary: String {

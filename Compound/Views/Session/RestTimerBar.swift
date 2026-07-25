@@ -12,7 +12,7 @@ struct RestTimerBar: View {
         // so wrapping all of it in the `TimelineView` rebuilt the buttons and
         // layout once a second — and kept doing it between rests, when the label
         // is a fixed string.
-        HStack(spacing: 10) {
+        HStack(spacing: 8) {
             if rest.isActive {
                 // Inline stop — ends the rest without opening the sheet.
                 Button { rest.stop() } label: {
