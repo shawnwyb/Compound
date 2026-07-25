@@ -51,7 +51,9 @@ struct SetInputRow: View {
 
             VStack(alignment: .leading, spacing: 4) {
                 Text("Notes").font(.caption).foregroundStyle(.secondary)
-                TextField("Optional", text: $note)
+                // No placeholder: the "Notes" caption is directly above it, and a
+                // repeated hint down fifteen set rows is just noise.
+                TextField("", text: $note)
                     .font(.body)
                     .submitLabel(.done)
                     .accessibilityLabel("Set note")

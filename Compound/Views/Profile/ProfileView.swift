@@ -79,7 +79,7 @@ struct ProfileView: View {
             } header: {
                 Text("Rest Presets").alignedSectionHeader()
             } footer: {
-                Text("These appear in the workout rest timer. Swipe to delete.")
+                Text("These appear in the workout rest timer.")
                     .alignedSectionFooter()
             }
 

@@ -152,9 +152,6 @@ private struct InProgressCard: View {
                 Text(workout.routineName.isEmpty ? "Workout" : workout.routineName)
                     .font(.headline)
                     .foregroundStyle(.primary)
-                Text("Tap to resume")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
             }
             .padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)

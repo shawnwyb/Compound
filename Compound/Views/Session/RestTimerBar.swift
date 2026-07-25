@@ -154,7 +154,7 @@ struct RestTimerSheet: View {
                 }
                 .buttonStyle(.bordered)
             }
-            Text("Tap a preset to start. Long-press to delete.")
+            Text("Long-press a preset to delete it.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
