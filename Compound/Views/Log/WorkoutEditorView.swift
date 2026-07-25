@@ -122,6 +122,9 @@ struct WorkoutEditorView: View {
         }
         .contentMargins(.horizontal, 16, for: .scrollContent)
         .listSectionSpacing(.compact)
+        // Weight and reps use number pads, which have no return key — swiping the
+        // list down is the only way back out of them.
+        .scrollDismissesKeyboard(.interactively)
         .navigationTitle(navigationTitle)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar { toolbarContent }

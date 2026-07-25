@@ -90,6 +90,9 @@ struct BodyView: View {
             }
             .contentMargins(.horizontal, 16, for: .scrollContent)
             .listSectionSpacing(.compact)
+            // Weight, calories and protein use number pads, which have no return
+            // key — swiping the list down is the only way back out of them.
+            .scrollDismissesKeyboard(.interactively)
             .navigationTitle("Body")
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
