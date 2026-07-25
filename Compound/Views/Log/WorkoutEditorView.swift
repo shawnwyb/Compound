@@ -196,7 +196,10 @@ struct WorkoutEditorView: View {
                     .font(.headline)
             }
             ToolbarItem(placement: .topBarTrailing) {
+                // The session's primary action, so it gets the filled accent
+                // treatment while Discard stays a quiet text button.
                 Button("Finish") { finish() }
+                    .buttonStyle(.borderedProminent)
                     .fontWeight(.semibold)
             }
         } else if isNew {
