@@ -277,19 +277,16 @@ struct WorkoutEditorView: View {
 
     // MARK: - Live session
 
-    /// Finish the live session: fill untouched sets from their ghost, stamp the
-    /// finish time and duration, and persist. `justFinished` stops the
-    /// disappear-finalize from also treating this as a manual edit.
+    /// Finish the live session: stamp the finish time and duration, and persist.
+    /// `justFinished` stops the disappear-finalize from also treating this as a
+    /// manual edit.
+    ///
+    /// Untouched sets are left untouched. Ghosts are a typing aid, never a
+    /// substitute for what happened: writing last session's numbers into sets the
+    /// user never filled in would log work they may not have done, and the log is
+    /// meant to be a record, not a guess.
     private func finish() {
         let now = Date.now
-        for exercise in workout.exercises {
-            let ghosts = ghosts(for: exercise)
-            for (index, set) in exercise.orderedSets.enumerated() where set.reps == 0 && set.weight == 0 {
-                guard index < ghosts.count else { continue }
-                set.reps = ghosts[index].reps
-                set.weight = ghosts[index].weight
-            }
-        }
         workout.finishedAt = now
         workout.durationSeconds = max(0, Int(now.timeIntervalSince(workout.startedAt)))
         justFinished = true

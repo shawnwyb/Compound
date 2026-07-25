@@ -35,7 +35,7 @@ enum WorkoutHistory {
     /// seeded with empty `SetEntry` rows from `routine`. The set *count* per
     /// exercise carries forward from history (so mid-workout adds/deletes stick);
     /// the actual reps/weight are shown as on-the-fly ghosts by the editor, not
-    /// stored — the rows start blank and are filled from the ghost on Finish.
+    /// stored. Rows start blank and stay blank unless the user types into them.
     @MainActor
     static func startWorkout(for routine: Routine, context: ModelContext) -> Workout {
         let descriptor = FetchDescriptor<Workout>(predicate: #Predicate { $0.finishedAt != nil })
