@@ -64,6 +64,14 @@ struct WorkoutLiveActivity: Widget {
 
     // MARK: - Lock Screen / banner
 
+    /// Two columns: the timer anchors the leading edge, what you're lifting sits
+    /// against the trailing one. A single leading-aligned stack left the right
+    /// half of the Lock Screen empty, which reads as content that failed to load.
+    ///
+    /// `timerInterval` text reserves the width of its widest value and centres
+    /// the glyphs inside, so the hero keeps its own column rather than being
+    /// aligned against neighbouring text — the reserved box is what's placed, not
+    /// the digits.
     @ViewBuilder
     private func lockScreen(_ context: ActivityViewContext<WorkoutActivityAttributes>) -> some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -82,20 +90,33 @@ struct WorkoutLiveActivity: Widget {
                 }
             }
 
-            // The hero gets its own line: `timerInterval` text reserves a fixed
-            // width for its widest value and centres the glyphs inside it, so it
-            // can't be reliably aligned against neighbouring text on one row.
-            hero(context)
-                .font(.system(size: 46, weight: .semibold, design: .rounded))
+            HStack(alignment: .firstTextBaseline) {
+                VStack(alignment: .leading, spacing: 0) {
+                    hero(context)
+                        .font(.system(size: 46, weight: .semibold, design: .rounded))
+                    // Says which clock the big number is, now that elapsed has
+                    // moved up to the corner and both are on screen at once.
+                    if context.state.isResting {
+                        Text("rest")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                }
 
-            HStack(spacing: 6) {
-                Text(context.state.exerciseName)
-                    .font(.subheadline.weight(.semibold))
-                    .lineLimit(1)
-                setLabel(context.state)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .layoutPriority(1)
+                Spacer(minLength: 12)
+
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text(context.state.exerciseName)
+                        .font(.subheadline.weight(.semibold))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.85)
+                    setLabel(context.state)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                // A long exercise name truncates rather than shoving the timer,
+                // whose reserved width can't compress.
+                .layoutPriority(1)
             }
         }
     }
