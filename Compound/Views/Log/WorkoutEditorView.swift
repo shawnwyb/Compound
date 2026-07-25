@@ -95,7 +95,8 @@ struct WorkoutEditorView: View {
                             ghostWeight: ghostWeight(at: index, in: ghosts),
                             ghostReps: ghostReps(at: index, in: ghosts),
                             isLive: isLive,
-                            onToggle: isLive ? { toggleCompleted(set) } : nil
+                            onToggle: isLive ? { toggleCompleted(set) } : nil,
+                            onCompletionChange: isLive ? { completionDidChange() } : nil
                         )
                     }
                     .onDelete { deleteSets(at: $0, in: exercise) }
@@ -391,11 +392,18 @@ struct WorkoutEditorView: View {
         dismiss()
     }
 
-    /// Mark a set done during a live session. Saved right away rather than left to
-    /// autosave: this is the one edit that says "real work happened here", and it
-    /// has to survive a force-quit for launch recovery to resume the session.
+    /// Mark a set done by hand during a live session. Typing reps does this on its
+    /// own; the tap is for the set you performed exactly as prefilled, where the
+    /// ghost values are already right and there is nothing to type.
     private func toggleCompleted(_ set: SetEntry) {
         set.completed.toggle()
+        completionDidChange()
+    }
+
+    /// Saved right away rather than left to autosave: completion is the one edit
+    /// that says "real work happened here", and it has to survive a force-quit for
+    /// launch recovery to resume the session.
+    private func completionDidChange() {
         try? context.save()
         // Completion is what moves "Set N of M" along on the Lock Screen.
         activeWorkout.refreshActivity()
@@ -503,6 +511,9 @@ private struct WorkoutSetRow: View {
     let ghostReps: Int?
     let isLive: Bool
     var onToggle: (() -> Void)? = nil
+    /// Called when typing flips the set's done state, so the Lock Screen's
+    /// "Set N of M" keeps up without refreshing on every keystroke.
+    var onCompletionChange: (() -> Void)? = nil
 
     /// Derived here rather than passed in: reading `reps`/`weight` from the
     /// editor's `body` made every keystroke invalidate the whole form — all
@@ -523,8 +534,23 @@ private struct WorkoutSetRow: View {
             completed: completed,
             onToggle: onToggle,
             onWeightChange: { set.weight = Double($0.replacingOccurrences(of: ",", with: ".")) ?? 0 },
-            onRepsChange: { set.reps = Int($0.filter(\.isNumber)) ?? 0 }
+            onRepsChange: { text in
+                set.reps = Int(text.filter(\.isNumber)) ?? 0
+                markDoneFromReps()
+            }
         )
+    }
+
+    /// Typing reps is what marks a set done — reps are what a set *is*, and they
+    /// are typically the last thing entered, so the circle fills exactly when the
+    /// set is finished rather than part-way through logging it. Clearing the field
+    /// unmarks it again. Only fires the Activity refresh on an actual flip.
+    private func markDoneFromReps() {
+        guard isLive else { return }
+        let done = set.reps > 0
+        guard set.completed != done else { return }
+        set.completed = done
+        onCompletionChange?()
     }
 }
 
