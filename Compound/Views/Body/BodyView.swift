@@ -388,9 +388,9 @@ struct DailyEntryFields: View {
     private var foodEditor: some View {
         ZStack(alignment: .topLeading) {
             if entry.foodText.isEmpty {
-                // An example of the expected content beats an instruction: it shows
-                // at a glance that anything goes in here.
-                Text("Eggs, oats, chicken bowl…")
+                // Names the expected content, like "Workout name" and "Routine
+                // name" do — no worked example, nothing to date or contradict.
+                Text("What you ate")
                     .foregroundStyle(.tertiary)
                     .padding(.top, 8)
                     .padding(.leading, 5)

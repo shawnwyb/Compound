@@ -48,7 +48,10 @@ struct StatsView: View {
                     ContentUnavailableView {
                         Label("No Stats Yet", systemImage: "chart.xyaxis.line")
                     } description: {
-                        Text("Progress appears once you've logged a few workouts or bodyweights.")
+                        // One finished workout is enough to clear this, and any
+                        // Body figure counts — calories and protein, not just
+                        // weight. Keep this in step with `StatsDigest.hasAnyData`.
+                        Text("Progress appears once you've finished a workout or logged something on the Body tab.")
                     }
                 } else {
                     List {
@@ -139,7 +142,7 @@ struct StatsView: View {
         rangePicker($liftsRange)
 
         let kind = SeriesKind.exercise(exerciseMetric)
-        chartView(points: points, kind: kind)
+        chartView(points: points, kind: kind, range: liftsRange)
         summaryRows(points: points, kind: kind, range: liftsRange)
     }
 
@@ -161,7 +164,7 @@ struct StatsView: View {
         rangePicker($bodyRange)
 
         let kind = SeriesKind.body(metric)
-        chartView(points: points, kind: kind)
+        chartView(points: points, kind: kind, range: bodyRange)
         summaryRows(points: points, kind: kind, range: bodyRange)
     }
 
@@ -178,14 +181,22 @@ struct StatsView: View {
     // MARK: - Chart
 
     @ViewBuilder
-    private func chartView(points: [SeriesPoint], kind: SeriesKind) -> some View {
+    private func chartView(points: [SeriesPoint], kind: SeriesKind, range: StatsRange) -> some View {
         if points.isEmpty {
-            ContentUnavailableView {
-                Label("No data in this range", systemImage: "calendar")
-            } description: {
-                Text("Try a longer range.")
+            // On "All" there is no longer range to widen to, so the advice would
+            // be a dead end — the metric pickers offer every metric, logged or
+            // not, so an empty all-time chart is reachable.
+            if range == .all {
+                ContentUnavailableView("Nothing logged yet", systemImage: "chart.xyaxis.line")
+                    .frame(maxWidth: .infinity)
+            } else {
+                ContentUnavailableView {
+                    Label("No data in this range", systemImage: "calendar")
+                } description: {
+                    Text("Try a longer range.")
+                }
+                .frame(maxWidth: .infinity)
             }
-            .frame(maxWidth: .infinity)
         } else {
             Chart(points) { point in
                 LineMark(
