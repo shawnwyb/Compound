@@ -308,7 +308,9 @@ struct DailyEntryFields: View {
     private var foodEditor: some View {
         ZStack(alignment: .topLeading) {
             if entry.foodText.isEmpty {
-                Text("What did you eat? Type or paste it here.")
+                // An example of the expected content beats an instruction: it shows
+                // at a glance that anything goes in here.
+                Text("Eggs, oats, chicken bowl…")
                     .foregroundStyle(.tertiary)
                     .padding(.top, 8)
                     .padding(.leading, 5)

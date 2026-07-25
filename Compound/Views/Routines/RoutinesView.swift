@@ -16,7 +16,7 @@ struct RoutinesView: View {
                     ContentUnavailableView {
                         Label("No Routines", systemImage: "list.bullet.rectangle")
                     } description: {
-                        Text("Create a routine to start building workouts.")
+                        Text("A routine is a template you start workouts from.")
                     } actions: {
                         Button("New Routine") { addRoutine() }
                             .buttonStyle(.borderedProminent)

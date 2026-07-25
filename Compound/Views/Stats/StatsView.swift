@@ -48,7 +48,7 @@ struct StatsView: View {
                     ContentUnavailableView {
                         Label("No Stats Yet", systemImage: "chart.xyaxis.line")
                     } description: {
-                        Text("Finish a few workouts, or log your bodyweight, and your progress will show up here.")
+                        Text("Progress appears once you've logged a few workouts or bodyweights.")
                     }
                 } else {
                     List {
@@ -183,7 +183,7 @@ struct StatsView: View {
             ContentUnavailableView {
                 Label("No data in this range", systemImage: "calendar")
             } description: {
-                Text("Try a longer range, or log more of this metric.")
+                Text("Try a longer range.")
             }
             .frame(maxWidth: .infinity)
         } else {

@@ -76,7 +76,7 @@ struct WorkoutEditorView: View {
                         Text("Notes")
                         // Notes run long, so this grows like a text view rather
                         // than scrolling sideways in a one-line field.
-                        TextField("How did it go?", text: $workout.notes, axis: .vertical)
+                        TextField("Optional", text: $workout.notes, axis: .vertical)
                             .lineLimit(3...8)
                     }
                     .padding(.vertical, 4)
