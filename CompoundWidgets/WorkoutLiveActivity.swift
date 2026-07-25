@@ -75,32 +75,27 @@ struct WorkoutLiveActivity: Widget {
     @ViewBuilder
     private func lockScreen(_ context: ActivityViewContext<WorkoutActivityAttributes>) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            HStack {
-                Label(context.attributes.workoutName, systemImage: WorkoutActivityStyle.icon)
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(WorkoutActivityStyle.accent)
-                    .lineLimit(1)
-                Spacer()
-                // Only shown while resting — otherwise elapsed *is* the hero below.
-                if context.state.isResting {
-                    elapsed(since: context.attributes.startedAt)
-                        .font(.caption)
-                        .monospacedDigit()
-                        .foregroundStyle(.secondary)
-                }
-            }
+            // The header owns its whole row. Nothing shares it, because the one
+            // thing that used to — a `Text(timerInterval:)` of elapsed time —
+            // reserves the width of its *widest* value ("7:59:59" over the 8h
+            // horizon) and cannot compress, so the title was the only flexible
+            // thing on the row and got truncated the moment a rest started.
+            // Elapsed still runs in the Dynamic Island's trailing region.
+            Label(context.attributes.workoutName, systemImage: WorkoutActivityStyle.icon)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(WorkoutActivityStyle.accent)
+                .lineLimit(1)
 
             HStack(alignment: .firstTextBaseline) {
                 VStack(alignment: .leading, spacing: 0) {
                     hero(context)
                         .font(.system(size: 46, weight: .semibold, design: .rounded))
-                    // Says which clock the big number is, now that elapsed has
-                    // moved up to the corner and both are on screen at once.
-                    if context.state.isResting {
-                        Text("rest")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                    }
+                    // Always present, so the widget keeps one height instead of
+                    // growing when a rest starts — and the big number says which
+                    // clock it is without anything else on screen to compare it to.
+                    Text(context.state.isResting ? "Rest" : "Elapsed")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
                 }
 
                 Spacer(minLength: 12)
