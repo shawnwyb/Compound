@@ -249,6 +249,7 @@ struct DailyEntryFields: View {
     /// Bumped on each copy purely to fire the haptic — a copy is otherwise
     /// completely silent.
     @State private var copyCount = 0
+    @State private var showClearConfirm = false
     /// Numeric fields are sized for the values they hold, and grow with the
     /// text size rather than truncating them.
     @ScaledMetric(relativeTo: .body) private var numberFieldWidth: CGFloat = 110
@@ -318,6 +319,22 @@ struct DailyEntryFields: View {
                     Text("g").foregroundStyle(.secondary)
                 }
             }
+
+            // Last row in the section, well away from Paste — this is the one
+            // control here that destroys work. Absent on a day with nothing on it.
+            if entry.hasData {
+                Button("Clear Day", role: .destructive) { showClearConfirm = true }
+                    .confirmationDialog(
+                        "Clear this day?",
+                        isPresented: $showClearConfirm,
+                        titleVisibility: .visible
+                    ) {
+                        Button("Clear Day", role: .destructive) { clearDay() }
+                        Button("Cancel", role: .cancel) {}
+                    } message: {
+                        Text("Removes the weight, food, calories, and protein logged for \(entry.date.formatted(.dateTime.weekday(.wide).month(.abbreviated).day())). This can't be undone.")
+                    }
+            }
         }
         // Re-seed the text fields whenever we're pointed at a different day.
         .onChange(of: entry.id, initial: true) { _, _ in seed() }
@@ -344,6 +361,17 @@ struct DailyEntryFields: View {
         weightText = entry.bodyWeight.map(formatWeight) ?? ""
         caloriesText = entry.calories.map(String.init) ?? ""
         proteinText = entry.protein.map(String.init) ?? ""
+    }
+
+    /// Empties the day's four fields. The typed-text state is re-seeded by hand:
+    /// it only reloads when the view is pointed at a *different* entry, so
+    /// without this the cleared fields would keep showing their old numbers.
+    private func clearDay() {
+        entry.bodyWeight = nil
+        entry.foodText = ""
+        entry.calories = nil
+        entry.protein = nil
+        seed()
     }
 
     private func copyFood() {
