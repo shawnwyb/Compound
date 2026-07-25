@@ -17,6 +17,30 @@ final class DailyEntryTests: XCTestCase {
         calendar.date(from: DateComponents(year: year, month: month, day: dayOfMonth, hour: hour, minute: minute))!
     }
 
+    // MARK: - appendingFood
+
+    func testPasteIntoAnEmptyLogAddsNoLeadingBlankLine() {
+        XCTAssertEqual(DailyEntry.appendingFood("oats", to: ""), "oats")
+        XCTAssertEqual(DailyEntry.appendingFood("oats", to: "  \n "), "oats")
+    }
+
+    func testPasteAlwaysLandsOnItsOwnLine() {
+        XCTAssertEqual(DailyEntry.appendingFood("oats", to: "eggs"), "eggs\noats")
+    }
+
+    func testPasteAfterATrailingNewlineDoesNotLeaveABlankLine() {
+        XCTAssertEqual(DailyEntry.appendingFood("oats", to: "eggs\n"), "eggs\noats")
+        XCTAssertEqual(DailyEntry.appendingFood("oats", to: "eggs\n\n  "), "eggs\noats")
+    }
+
+    func testPastedTextIsTrimmedButInnerLineBreaksAreKept() {
+        XCTAssertEqual(DailyEntry.appendingFood("\n oats\nrice \n", to: "eggs"), "eggs\noats\nrice")
+    }
+
+    func testPastingNothingLeavesTheLogUntouched() {
+        XCTAssertEqual(DailyEntry.appendingFood("   ", to: "eggs\n"), "eggs\n")
+    }
+
     // MARK: - hasData
 
     func testEmptyEntryHasNoData() {

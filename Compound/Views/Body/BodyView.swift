@@ -351,17 +351,11 @@ struct DailyEntryFields: View {
         copyCount += 1
     }
 
-    /// Pasted text is *added* to the day rather than replacing it — a day's food
-    /// arrives in several goes, and a paste that wiped the morning would be a
-    /// bad surprise with no undo.
     private func appendPasted(_ strings: [String]) {
-        let pasted = strings.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !pasted.isEmpty else { return }
-        if entry.foodText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            entry.foodText = pasted
-        } else {
-            entry.foodText += "\n" + pasted
-        }
+        entry.foodText = DailyEntry.appendingFood(
+            strings.joined(separator: "\n"),
+            to: entry.foodText
+        )
     }
 }
 

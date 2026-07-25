@@ -55,6 +55,19 @@ extension DailyEntry {
             || !foodText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
+    /// Text pasted into the food log, joined onto what's already there: on its
+    /// own line, and on exactly one — trailing blank space in `existing` is
+    /// dropped first, so a box already ending in a newline doesn't gain a gap.
+    /// Appends rather than replaces: a day's food arrives in several goes, and
+    /// there is no undo for a paste that wiped the morning.
+    static func appendingFood(_ pasted: String, to existing: String) -> String {
+        let addition = pasted.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !addition.isEmpty else { return existing }
+        var kept = existing
+        while let last = kept.last, last.isWhitespace { kept.removeLast() }
+        return kept.isEmpty ? addition : kept + "\n" + addition
+    }
+
     /// The half-open `[start, end)` instant range of the calendar day
     /// containing `date`. Pure and testable — the fetch-or-create below and its
     /// day-boundary behavior are defined entirely by this.
