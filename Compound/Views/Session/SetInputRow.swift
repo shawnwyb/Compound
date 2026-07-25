@@ -60,17 +60,26 @@ struct SetInputRow: View {
         }
     }
 
+    /// Done reads as a *filled* accent disc and pending as a hollow ring, so the
+    /// state survives greyscale and colour-blind vision — the fill, not the hue,
+    /// is what carries the meaning.
     @ViewBuilder private var circle: some View {
         let label = Text("\(setNumber)")
-            .font(.subheadline.weight(.medium))
-            .foregroundStyle(completed ? .primary : .secondary)
+            .font(.subheadline.weight(.semibold))
+            .monospacedDigit()
+            .foregroundStyle(completed ? AnyShapeStyle(.background) : AnyShapeStyle(.secondary))
             .frame(width: 30, height: 30)
-            .overlay(
-                Circle().strokeBorder(
-                    completed ? Color.primary : Color.secondary.opacity(0.5),
-                    lineWidth: 1.5
-                )
-            )
+            .background {
+                Circle()
+                    .fill(.tint)
+                    .opacity(completed ? 1 : 0)
+            }
+            .overlay {
+                Circle()
+                    .strokeBorder(Color.secondary.opacity(0.5), lineWidth: 1.5)
+                    .opacity(completed ? 0 : 1)
+            }
+            .animation(.snappy(duration: 0.2), value: completed)
 
         if let onToggle {
             // The drawn circle stays 30 pt; the tappable area around it is padded
