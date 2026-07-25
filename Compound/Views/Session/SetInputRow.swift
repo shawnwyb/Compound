@@ -142,9 +142,12 @@ struct SetInputRow: View {
     }
 }
 
-/// Formats a numeric set value, dropping a trailing `.0` (135.0 -> "135").
+/// Formats a numeric set value, dropping a trailing `.0` (135.0 -> "135"). A
+/// value that isn't a real number formats as nothing — `Int(_:)` traps on
+/// infinity, and a field or ghost showing "inf" is no more use than a blank one.
 func formattedSetNumber(_ value: Double) -> String {
-    value == value.rounded() ? String(Int(value)) : String(value)
+    guard value.isFinite else { return "" }
+    return value == value.rounded() ? String(Int(value)) : String(value)
 }
 
 /// The grey ghost string for a value — "0" when there is nothing to hint.

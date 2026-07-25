@@ -524,7 +524,7 @@ private struct WorkoutSetRow: View {
             // history would write numbers from other sessions into a record of
             // what actually happened.
             adoptsGhostWeight: isLive,
-            onWeightChange: { set.weight = Double($0.replacingOccurrences(of: ",", with: ".")) ?? 0 },
+            onWeightChange: { set.weight = WeightText.value($0) ?? 0 },
             onRepsChange: { text in
                 set.reps = Int(text.filter(\.isNumber)) ?? 0
                 markDoneFromReps()

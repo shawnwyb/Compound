@@ -34,8 +34,13 @@ struct BodyView: View {
     }
 
     /// Every day with a logged weight, oldest first — drives the trend chart.
+    /// Non-finite weights are excluded along with missing ones: plotting one
+    /// hands Charts a NaN mark, and a single infinity blows the Y domain out to
+    /// `-inf ... inf`, which makes every point NaN.
     private var weightSeries: [DailyEntry] {
-        entries.filter { $0.bodyWeight != nil }.sorted { $0.date < $1.date }
+        entries
+            .filter { $0.bodyWeight?.isFinite == true }
+            .sorted { $0.date < $1.date }
     }
 
     var body: some View {
@@ -171,8 +176,10 @@ struct BodyView: View {
 
     /// A padded Y range that never has zero span — a flat or single-point series
     /// would otherwise make Charts divide by zero and emit NaN to CoreGraphics.
+    /// Non-finite weights are dropped first: `min()`/`max()` propagate a leading
+    /// NaN, and `nan ... nan` is not a range a `ClosedRange` will form at all.
     private func weightChartDomain(_ series: [DailyEntry]) -> ClosedRange<Double> {
-        let weights = series.compactMap(\.bodyWeight)
+        let weights = series.compactMap(\.bodyWeight).filter(\.isFinite)
         guard let lo = weights.min(), let hi = weights.max() else { return 0...1 }
         guard hi > lo else { return (lo - 1)...(hi + 1) }
         let pad = (hi - lo) * 0.1
@@ -216,7 +223,13 @@ struct BodyView: View {
     }
 
     private func loadDay() {
-        current = DailyEntry.entry(on: selectedDay, in: context)
+        let entry = DailyEntry.entry(on: selectedDay, in: context)
+        // Clears a non-finite weight saved before the field rejected them, so
+        // the day opens on an empty field rather than an unreadable one.
+        if let weight = entry.bodyWeight, !weight.isFinite {
+            entry.bodyWeight = nil
+        }
+        current = entry
     }
 
     private func delete(at offsets: IndexSet, in items: [DailyEntry]) {
@@ -266,7 +279,7 @@ struct DailyEntryFields: View {
                         .monospacedDigit()
                         .frame(maxWidth: numberFieldWidth)
                         .onChange(of: weightText) { _, new in
-                            entry.bodyWeight = Double(new.replacingOccurrences(of: ",", with: "."))
+                            entry.bodyWeight = WeightText.value(new)
                         }
                     Text(unit).foregroundStyle(.secondary)
                 }
@@ -482,9 +495,12 @@ private struct HistoryRow: View {
     }
 }
 
-/// Whole-number weights show without a decimal, otherwise one place.
+/// Whole-number weights show without a decimal, otherwise one place. A weight
+/// that isn't a real number reads as no weight — `Int(_:)` traps on infinity,
+/// which took the whole app down from a row that only wanted to draw a number.
 private func formatWeight(_ weight: Double) -> String {
-    weight == weight.rounded() ? String(Int(weight)) : String(format: "%.1f", weight)
+    guard weight.isFinite else { return "—" }
+    return weight == weight.rounded() ? String(Int(weight)) : String(format: "%.1f", weight)
 }
 
 #Preview {

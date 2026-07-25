@@ -181,7 +181,11 @@ struct StatsView: View {
     // MARK: - Chart
 
     @ViewBuilder
-    private func chartView(points: [SeriesPoint], kind: SeriesKind, range: StatsRange) -> some View {
+    private func chartView(points series: [SeriesPoint], kind: SeriesKind, range: StatsRange) -> some View {
+        // A value that isn't a real number has no position on the plot: Charts
+        // passes it to CoreGraphics as NaN, and one infinity stretches the Y
+        // domain far enough to make every other point NaN too.
+        let points = series.filter { $0.value.isFinite }
         if points.isEmpty {
             // On "All" there is no longer range to widen to, so the advice would
             // be a dead end — the metric pickers offer every metric, logged or
@@ -294,8 +298,11 @@ struct StatsView: View {
         "\(formatValue(value, kind: kind)) \(unitSuffix(kind))"
     }
 
-    /// Compact formatting for axis ticks and summary values.
+    /// Compact formatting for axis ticks and summary values. A value that isn't
+    /// a real number reads as no value: every branch below ends in an `Int(_:)`
+    /// conversion, which traps on infinity.
     private func formatValue(_ value: Double, kind: SeriesKind) -> String {
+        guard value.isFinite else { return "—" }
         if case .exercise(.volume) = kind { return compactVolume(value) }
         switch kind {
         case .body(.calories), .body(.protein):
@@ -313,8 +320,10 @@ struct StatsView: View {
 
     /// A padded Y range that never has zero span — a flat or single-point series
     /// would otherwise make Charts divide by zero and emit NaN to CoreGraphics.
+    /// Non-finite values are dropped first: `min()`/`max()` propagate a leading
+    /// NaN, and `nan ... nan` is not a range a `ClosedRange` will form at all.
     private func yDomain(_ points: [SeriesPoint]) -> ClosedRange<Double> {
-        let values = points.map(\.value)
+        let values = points.map(\.value).filter(\.isFinite)
         guard let lo = values.min(), let hi = values.max() else { return 0...1 }
         guard hi > lo else { return (lo - 1)...(hi + 1) }
         let pad = (hi - lo) * 0.1
