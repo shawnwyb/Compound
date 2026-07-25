@@ -62,10 +62,24 @@ struct WorkoutEditorView: View {
         Form {
             if !isLive {
                 Section {
-                    TextField("Name", text: $workout.routineName)
+                    // A leading label per row, so the field still says what it is
+                    // once the placeholder has been typed over.
+                    LabeledContent("Name") {
+                        TextField("Workout name", text: $workout.routineName)
+                            .textInputAutocapitalization(.words)
+                            .submitLabel(.done)
+                            .multilineTextAlignment(.trailing)
+                    }
                     DatePicker("Start time", selection: startBinding, displayedComponents: [.date, .hourAndMinute])
                     DatePicker("End time", selection: endBinding, displayedComponents: [.date, .hourAndMinute])
-                    TextField("Notes", text: $workout.notes, axis: .vertical)
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Notes")
+                        // Notes run long, so this grows like a text view rather
+                        // than scrolling sideways in a one-line field.
+                        TextField("How did it go?", text: $workout.notes, axis: .vertical)
+                            .lineLimit(3...8)
+                    }
+                    .padding(.vertical, 4)
                 } header: {
                     Text("Details").alignedSectionHeader()
                 }

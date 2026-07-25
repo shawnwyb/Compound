@@ -18,6 +18,8 @@ struct RoutineEditorView: View {
             Form {
                 Section {
                     TextField("Routine name", text: $routine.name)
+                        .textInputAutocapitalization(.words)
+                        .submitLabel(.done)
                 } header: {
                     Text("Name").alignedSectionHeader()
                 }

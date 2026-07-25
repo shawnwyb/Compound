@@ -49,7 +49,9 @@ struct SetInputRow: View {
 
             VStack(alignment: .leading, spacing: 4) {
                 Text("Notes").font(.caption).foregroundStyle(.secondary)
-                TextField("", text: $note).font(.body)
+                TextField("Optional", text: $note)
+                    .font(.body)
+                    .submitLabel(.done)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
