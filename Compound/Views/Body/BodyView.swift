@@ -113,7 +113,7 @@ struct BodyView: View {
                 selectedDay = nav.shifted(selectedDay, by: -1, today: today)
             } label: {
                 Image(systemName: "chevron.left")
-                    .frame(width: 44, height: 30)
+                    .frame(width: 44, height: 44)
                     .contentShape(Rectangle())
             }
             .buttonStyle(.borderless)
@@ -135,6 +135,8 @@ struct BodyView: View {
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                 }
+                .frame(minHeight: 44)
+                .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .sheet(isPresented: $showDayPicker) {
@@ -156,7 +158,7 @@ struct BodyView: View {
                 selectedDay = nav.shifted(selectedDay, by: 1, today: today)
             } label: {
                 Image(systemName: "chevron.right")
-                    .frame(width: 44, height: 30)
+                    .frame(width: 44, height: 44)
                     .contentShape(Rectangle())
             }
             .buttonStyle(.borderless)

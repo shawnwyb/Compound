@@ -18,6 +18,8 @@ struct RestTimerBar: View {
                 Button { rest.stop() } label: {
                     Image(systemName: "stop.circle.fill")
                         .font(.title2)
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 RestCountdownText(rest: rest)
@@ -30,7 +32,11 @@ struct RestTimerBar: View {
             Image(systemName: "chevron.up")
                 .foregroundStyle(.secondary)
         }
-        .padding()
+        // A fixed 44 pt content height keeps the bar from jumping when the
+        // countdown swaps in, and leaves the stop button its full hit area.
+        .frame(minHeight: 44)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
         .contentShape(Rectangle())
         .onTapGesture { onTap() }
         .background(.bar)
@@ -55,7 +61,7 @@ struct RestTimerSheet: View {
                     countdown
 
                     if rest.isActive {
-                        HStack(spacing: 12) {
+                        HStack(spacing: 16) {
                             Button("−15") { rest.adjust(by: -15) }
                                 .buttonStyle(.bordered)
                             Button("+15") { rest.adjust(by: 15) }
@@ -63,6 +69,7 @@ struct RestTimerSheet: View {
                             Button("Skip") { rest.stop() }
                                 .buttonStyle(.borderedProminent)
                         }
+                        .controlSize(.large)
                         .font(.headline)
                     } else {
                         Button {
@@ -72,6 +79,7 @@ struct RestTimerSheet: View {
                                 .frame(maxWidth: .infinity)
                         }
                         .buttonStyle(.borderedProminent)
+                        .controlSize(.large)
                         .font(.headline)
                     }
 
@@ -118,8 +126,7 @@ struct RestTimerSheet: View {
                         rest.start(seconds: seconds)
                     } label: {
                         Text(TimeFormat.clock(seconds))
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 6)
+                            .frame(maxWidth: .infinity, minHeight: 44)
                     }
                     .buttonStyle(.bordered)
                     .contextMenu {
@@ -131,8 +138,7 @@ struct RestTimerSheet: View {
                     showAddPreset = true
                 } label: {
                     Image(systemName: "plus")
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 6)
+                        .frame(maxWidth: .infinity, minHeight: 44)
                 }
                 .buttonStyle(.bordered)
             }

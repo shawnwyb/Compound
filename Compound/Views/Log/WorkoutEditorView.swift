@@ -243,6 +243,8 @@ struct WorkoutEditorView: View {
                     Image(systemName: "ellipsis")
                         .font(.title3)
                         .foregroundStyle(.primary)
+                        .frame(width: 44, height: 44, alignment: .trailing)
+                        .contentShape(Rectangle())
                 }
                 .textCase(nil)
             }

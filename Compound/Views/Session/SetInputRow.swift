@@ -61,9 +61,17 @@ struct SetInputRow: View {
             )
 
         if let onToggle {
-            Button(action: onToggle) { label }.buttonStyle(.plain)
+            // The drawn circle stays 30 pt; the tappable area around it is padded
+            // out to the 44 pt minimum, since this is the one control a user hits
+            // mid-set with sweaty hands.
+            Button(action: onToggle) {
+                label
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
         } else {
-            label
+            label.frame(width: 44, height: 44)
         }
     }
 

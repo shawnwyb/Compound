@@ -16,8 +16,9 @@ struct WorkoutMiniBar: View {
                 idleContent
             }
         }
+        .frame(minHeight: 44)
         .padding(.horizontal, 16)
-        .padding(.vertical, 10)
+        .padding(.vertical, 8)
         .frame(maxWidth: .infinity)
         .background(.bar)
         .overlay(alignment: .top) { Divider() }
@@ -27,7 +28,10 @@ struct WorkoutMiniBar: View {
 
     @ViewBuilder private var restContent: some View {
         Button { active.rest.stop() } label: {
-            Image(systemName: "stop.circle.fill").font(.title2)
+            Image(systemName: "stop.circle.fill")
+                .font(.title2)
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
 
@@ -41,6 +45,8 @@ struct WorkoutMiniBar: View {
             Image(systemName: "xmark.circle.fill")
                 .font(.title2)
                 .foregroundStyle(.secondary)
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
     }
