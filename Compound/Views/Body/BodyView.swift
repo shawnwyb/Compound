@@ -81,10 +81,7 @@ struct BodyView: View {
                         }
                         .onDelete { delete(at: $0, in: section.items) }
                     } header: {
-                        Text(section.title)
-                            .font(.subheadline)
-                            .textCase(nil)
-                            .alignedSectionHeader()
+                        Text(section.title).alignedSectionHeader()
                     }
                 }
             }

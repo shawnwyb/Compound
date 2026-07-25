@@ -325,8 +325,14 @@ extension View {
     /// Aligns a grouped section header's leading edge with its section card and the
     /// navigation title, trimming iOS's default extra cell-content indentation.
     /// Pair with `.contentMargins(.horizontal, 16, for: .scrollContent)` on the List.
+    ///
+    /// Headers read as bold mixed-case subheadings rather than the system's small
+    /// uppercase caption, so one rung of the type hierarchy — and one header
+    /// treatment — holds across every tab, the Log's month headers included.
     func alignedSectionHeader() -> some View {
-        fontWeight(.bold)
+        font(.subheadline)
+            .fontWeight(.bold)
+            .textCase(nil)
             .listRowInsets(EdgeInsets(top: 16, leading: 0, bottom: 8, trailing: 16))
     }
 
