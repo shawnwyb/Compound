@@ -41,10 +41,12 @@ struct SetInputRow: View {
 
             column(label: unit.capitalized, width: stacked ? nil : weightWidth) {
                 numberField(text: $weightText, ghost: ghostWeight, keyboard: .decimalPad, onChange: onWeightChange)
+                    .accessibilityLabel(unit.capitalized)
             }
 
             column(label: "Reps", width: stacked ? nil : repsWidth) {
                 numberField(text: $repsText, ghost: ghostReps, keyboard: .numberPad, onChange: onRepsChange)
+                    .accessibilityLabel("Reps")
             }
 
             VStack(alignment: .leading, spacing: 4) {
@@ -52,6 +54,7 @@ struct SetInputRow: View {
                 TextField("Optional", text: $note)
                     .font(.body)
                     .submitLabel(.done)
+                    .accessibilityLabel("Set note")
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
@@ -93,6 +96,9 @@ struct SetInputRow: View {
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .accessibilityLabel("Set \(setNumber)")
+            .accessibilityValue(completed ? "Done" : "Not done")
+            .accessibilityHint("Marks the set done")
         } else {
             label.frame(width: 44, height: 44)
         }

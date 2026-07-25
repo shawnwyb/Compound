@@ -224,6 +224,7 @@ struct WorkoutEditorView: View {
                 } label: {
                     Image(systemName: "ellipsis.circle")
                 }
+                .accessibilityLabel("Workout options")
             }
         }
     }
@@ -264,6 +265,7 @@ struct WorkoutEditorView: View {
                         .contentShape(Rectangle())
                 }
                 .textCase(nil)
+                .accessibilityLabel("\(exercise.exerciseName) options")
             }
             .alignedSectionHeader()
         }

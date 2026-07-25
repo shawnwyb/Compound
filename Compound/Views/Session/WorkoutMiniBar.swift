@@ -34,6 +34,7 @@ struct WorkoutMiniBar: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .accessibilityLabel("Stop rest timer")
 
         RestCountdownText(rest: active.rest)
             .font(.title3)
@@ -49,6 +50,7 @@ struct WorkoutMiniBar: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .accessibilityLabel("Dismiss rest timer")
     }
 
     @ViewBuilder private var idleContent: some View {
@@ -62,8 +64,16 @@ struct WorkoutMiniBar: View {
 
         ElapsedTimeText(since: workout.startedAt)
             .foregroundStyle(.secondary)
-        Image(systemName: "chevron.up")
-            .font(.footnote)
-            .foregroundStyle(.secondary)
+        // A real button, not just decoration on the bar's tap gesture, so
+        // VoiceOver has something to land on and activate.
+        Button { active.maximize() } label: {
+            Image(systemName: "chevron.up")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Reopen workout")
     }
 }

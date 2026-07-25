@@ -22,6 +22,7 @@ struct RestTimerBar: View {
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel("Stop rest timer")
                 RestCountdownText(rest: rest)
                     .fontWeight(.semibold)
             } else {
@@ -29,8 +30,16 @@ struct RestTimerBar: View {
                 Text("Rest Timer")
             }
             Spacer()
-            Image(systemName: "chevron.up")
-                .foregroundStyle(.secondary)
+            // A real button, not just decoration on the bar's tap gesture, so
+            // VoiceOver has something to land on and activate.
+            Button(action: onTap) {
+                Image(systemName: "chevron.up")
+                    .foregroundStyle(.secondary)
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Open rest timer")
         }
         // A fixed 44 pt content height keeps the bar from jumping when the
         // countdown swaps in, and leaves the stop button its full hit area.

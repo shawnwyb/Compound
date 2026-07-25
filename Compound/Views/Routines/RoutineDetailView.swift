@@ -102,6 +102,7 @@ struct RoutineDetailView: View {
                     } label: {
                         Image(systemName: "ellipsis.circle")
                     }
+                    .accessibilityLabel("Routine options")
                 }
             }
         }

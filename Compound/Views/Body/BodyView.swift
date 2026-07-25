@@ -142,6 +142,8 @@ struct BodyView: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .accessibilityLabel("Selected day, \(selectedDay.formatted(.dateTime.weekday(.wide).month(.wide).day().year()))")
+            .accessibilityHint("Jump to another day")
             .sheet(isPresented: $showDayPicker) {
                 DatePicker(
                     "Select day",

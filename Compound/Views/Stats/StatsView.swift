@@ -108,6 +108,8 @@ struct StatsView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(16)
         .background(.fill.tertiary, in: RoundedRectangle(cornerRadius: 16))
+        // Read as one "Workouts, 12" element rather than two stray fragments.
+        .accessibilityElement(children: .combine)
     }
 
     // MARK: - Lifts explorer
