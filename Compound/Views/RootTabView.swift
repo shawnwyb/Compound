@@ -15,28 +15,35 @@ struct RootTabView: View {
     }
 
     var body: some View {
+        // The bar insets each tab's own content rather than the whole `TabView`:
+        // insetting the TabView puts it at the bottom of the screen, which on
+        // iOS 26 — where the tab bar floats over the content — covers the tab bar
+        // completely. (The system's `tabViewBottomAccessory` slot is the other
+        // way to do this, but it always reserves its capsule, so it would have to
+        // be applied conditionally, and that re-identifies the TabView and pops
+        // every tab's navigation stack on minimize.)
         TabView {
             LogView()
+                .minimizedWorkoutBar(active)
                 .tabItem { Label("Log", systemImage: "calendar") }
 
             RoutinesView()
+                .minimizedWorkoutBar(active)
                 .tabItem { Label("Routines", systemImage: "list.bullet.rectangle") }
 
             StatsView()
+                .minimizedWorkoutBar(active)
                 .tabItem { Label("Stats", systemImage: "chart.bar.fill") }
 
             BodyView()
+                .minimizedWorkoutBar(active)
                 .tabItem { Label("Body", systemImage: "figure") }
 
             ProfileView()
+                .minimizedWorkoutBar(active)
                 .tabItem { Label("Profile", systemImage: "person.crop.circle") }
         }
         .environment(active)
-        .safeAreaInset(edge: .bottom) {
-            if active.isActive, active.isMinimized, let workout = active.workout {
-                WorkoutMiniBar(active: active, workout: workout)
-            }
-        }
         .fullScreenCover(isPresented: coverPresented, onDismiss: deletePendingWorkout) {
             NavigationStack {
                 if let workout = active.workout {

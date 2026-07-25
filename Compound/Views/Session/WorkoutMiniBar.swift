@@ -9,6 +9,28 @@ struct WorkoutMiniBar: View {
     let workout: Workout
 
     var body: some View {
+        content
+            .contentShape(Rectangle())
+            .onTapGesture { active.maximize() }
+    }
+
+    /// A floating capsule on iOS 26, matching the shape of the tab bar it sits
+    /// above; the edge-to-edge bar it has always been on older systems, where the
+    /// tab bar is an opaque slab.
+    @ViewBuilder private var content: some View {
+        if #available(iOS 26.0, *) {
+            bar
+                .background(.regularMaterial, in: Capsule())
+                .padding(.horizontal, 16)
+                .padding(.bottom, 8)
+        } else {
+            bar
+                .background(.bar)
+                .overlay(alignment: .top) { Divider() }
+        }
+    }
+
+    private var bar: some View {
         HStack(spacing: 12) {
             if active.rest.isActive {
                 restContent
@@ -20,11 +42,9 @@ struct WorkoutMiniBar: View {
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
         .frame(maxWidth: .infinity)
-        .background(.bar)
-        .overlay(alignment: .top) { Divider() }
-        .contentShape(Rectangle())
-        .onTapGesture { active.maximize() }
     }
+
+    // MARK: - Layouts
 
     @ViewBuilder private var restContent: some View {
         Button { active.rest.stop() } label: {
@@ -75,5 +95,18 @@ struct WorkoutMiniBar: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Reopen workout")
+    }
+}
+
+extension View {
+    /// Rides the minimized workout above this tab's content, inside the tab's own
+    /// safe area so it never covers the tab bar. Contributes no height — and no
+    /// chrome — when no workout is minimized.
+    func minimizedWorkoutBar(_ active: ActiveWorkout) -> some View {
+        safeAreaInset(edge: .bottom) {
+            if active.isActive, active.isMinimized, let workout = active.workout {
+                WorkoutMiniBar(active: active, workout: workout)
+            }
+        }
     }
 }
