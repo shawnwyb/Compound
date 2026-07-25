@@ -246,6 +246,9 @@ struct DailyEntryFields: View {
     @State private var weightText = ""
     @State private var caloriesText = ""
     @State private var proteinText = ""
+    /// Bumped on each copy purely to fire the haptic — a copy is otherwise
+    /// completely silent.
+    @State private var copyCount = 0
     /// Numeric fields are sized for the values they hold, and grow with the
     /// text size rather than truncating them.
     @ScaledMetric(relativeTo: .body) private var numberFieldWidth: CGFloat = 110
@@ -267,10 +270,25 @@ struct DailyEntryFields: View {
             }
 
             VStack(alignment: .leading, spacing: 8) {
-                Text("Food")
+                HStack {
+                    Text("Food")
+                    Spacer()
+                    if !entry.foodText.isEmpty {
+                        Button("Copy", systemImage: "doc.on.doc") { copyFood() }
+                    }
+                    // The system paste control, not a Button reading
+                    // `UIPasteboard`: the tap itself is the user's consent, so it
+                    // skips the "Allow Paste?" alert that would otherwise appear
+                    // on every single meal.
+                    PasteButton(payloadType: String.self) { appendPasted($0) }
+                        .buttonBorderShape(.capsule)
+                }
+                .font(.subheadline)
+                .labelStyle(.titleOnly)
                 foodEditor
             }
             .padding(.vertical, 4)
+            .sensoryFeedback(.success, trigger: copyCount)
 
             LabeledContent("Calories") {
                 HStack(spacing: 8) {
@@ -326,6 +344,24 @@ struct DailyEntryFields: View {
         weightText = entry.bodyWeight.map(formatWeight) ?? ""
         caloriesText = entry.calories.map(String.init) ?? ""
         proteinText = entry.protein.map(String.init) ?? ""
+    }
+
+    private func copyFood() {
+        UIPasteboard.general.string = entry.foodText
+        copyCount += 1
+    }
+
+    /// Pasted text is *added* to the day rather than replacing it — a day's food
+    /// arrives in several goes, and a paste that wiped the morning would be a
+    /// bad surprise with no undo.
+    private func appendPasted(_ strings: [String]) {
+        let pasted = strings.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !pasted.isEmpty else { return }
+        if entry.foodText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            entry.foodText = pasted
+        } else {
+            entry.foodText += "\n" + pasted
+        }
     }
 }
 
