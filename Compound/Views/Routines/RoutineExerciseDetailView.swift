@@ -34,6 +34,7 @@ struct RoutineExerciseDetailView: View {
     @State private var setsText = ""
     @FocusState private var setsFocused: Bool
     @State private var showReplace = false
+    @ScaledMetric(relativeTo: .body) private var setsFieldWidth: CGFloat = 56
 
     var body: some View {
         List {
@@ -47,7 +48,7 @@ struct RoutineExerciseDetailView: View {
                         .multilineTextAlignment(.center)
                         .monospacedDigit()
                         .textFieldStyle(.roundedBorder)
-                        .frame(width: 56)
+                        .frame(width: setsFieldWidth)
                         .focused($setsFocused)
                         .onChange(of: setsText) { _, newValue in
                             let digits = String(newValue.filter(\.isNumber).prefix(2))

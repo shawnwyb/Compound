@@ -51,8 +51,11 @@ struct RestTimerSheet: View {
     @Bindable var settings: Settings
 
     @State private var showAddPreset = false
+    /// The countdown is a custom size, so it has to be scaled by hand to keep
+    /// following Dynamic Type.
+    @ScaledMetric(relativeTo: .largeTitle) private var countdownSize: CGFloat = 68
 
-    private let columns = [GridItem(.adaptive(minimum: 88), spacing: 12)]
+    private let columns = [GridItem(.adaptive(minimum: 88), spacing: 16)]
 
     var body: some View {
         NavigationStack {
@@ -106,21 +109,21 @@ struct RestTimerSheet: View {
         // unchanging string.
         if rest.isActive {
             RestCountdownText(rest: rest)
-                .font(.system(size: 68, weight: .semibold, design: .rounded))
+                .font(.system(size: countdownSize, weight: .semibold, design: .rounded))
                 .foregroundStyle(.primary)
         } else {
             Text(TimeFormat.clock(0))
-                .font(.system(size: 68, weight: .semibold, design: .rounded))
+                .font(.system(size: countdownSize, weight: .semibold, design: .rounded))
                 .monospacedDigit()
                 .foregroundStyle(.secondary)
         }
     }
 
     private var presets: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 16) {
             Text("Presets")
                 .font(.headline)
-            LazyVGrid(columns: columns, spacing: 12) {
+            LazyVGrid(columns: columns, spacing: 16) {
                 ForEach(settings.restPresets.sorted(), id: \.self) { seconds in
                     Button {
                         rest.start(seconds: seconds)

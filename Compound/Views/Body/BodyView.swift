@@ -244,6 +244,9 @@ struct DailyEntryFields: View {
     @State private var weightText = ""
     @State private var caloriesText = ""
     @State private var proteinText = ""
+    /// Numeric fields are sized for the values they hold, and grow with the
+    /// text size rather than truncating them.
+    @ScaledMetric(relativeTo: .body) private var numberFieldWidth: CGFloat = 110
 
     var body: some View {
         Group {
@@ -253,7 +256,7 @@ struct DailyEntryFields: View {
                         .keyboardType(.decimalPad)
                         .multilineTextAlignment(.trailing)
                         .monospacedDigit()
-                        .frame(maxWidth: 110)
+                        .frame(maxWidth: numberFieldWidth)
                         .onChange(of: weightText) { _, new in
                             entry.bodyWeight = Double(new.replacingOccurrences(of: ",", with: "."))
                         }
@@ -274,7 +277,7 @@ struct DailyEntryFields: View {
                         .multilineTextAlignment(.trailing)
                         .font(.body.weight(.semibold))
                         .monospacedDigit()
-                        .frame(maxWidth: 110)
+                        .frame(maxWidth: numberFieldWidth)
                         .onChange(of: caloriesText) { _, new in
                             entry.calories = Int(new.filter(\.isNumber))
                         }
@@ -288,7 +291,7 @@ struct DailyEntryFields: View {
                         .keyboardType(.numberPad)
                         .multilineTextAlignment(.trailing)
                         .monospacedDigit()
-                        .frame(maxWidth: 110)
+                        .frame(maxWidth: numberFieldWidth)
                         .onChange(of: proteinText) { _, new in
                             entry.protein = Int(new.filter(\.isNumber))
                         }

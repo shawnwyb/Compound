@@ -23,15 +23,27 @@ struct SetInputRow: View {
     @State private var weightText = ""
     @State private var repsText = ""
 
+    @Environment(\.dynamicTypeSize) private var typeSize
+    /// Column widths grow with the text size instead of clipping the numbers.
+    @ScaledMetric(relativeTo: .title3) private var weightWidth: CGFloat = 66
+    @ScaledMetric(relativeTo: .title3) private var repsWidth: CGFloat = 58
+
     var body: some View {
-        HStack(alignment: .center, spacing: 8) {
+        // Four columns stop fitting side by side at accessibility text sizes, so
+        // the row stacks rather than squeezing each field down to a digit.
+        let stacked = typeSize.isAccessibilitySize
+        let layout = stacked
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
+            : AnyLayout(HStackLayout(alignment: .center, spacing: 8))
+
+        layout {
             circle
 
-            column(label: unit.capitalized, width: 66) {
+            column(label: unit.capitalized, width: stacked ? nil : weightWidth) {
                 numberField(text: $weightText, ghost: ghostWeight, keyboard: .decimalPad, onChange: onWeightChange)
             }
 
-            column(label: "Reps", width: 58) {
+            column(label: "Reps", width: stacked ? nil : repsWidth) {
                 numberField(text: $repsText, ghost: ghostReps, keyboard: .numberPad, onChange: onRepsChange)
             }
 
@@ -75,9 +87,11 @@ struct SetInputRow: View {
         }
     }
 
+    /// A labelled field column. A nil `width` lets it take the space it needs —
+    /// used by the stacked accessibility layout.
     private func column<Content: View>(
         label: String,
-        width: CGFloat,
+        width: CGFloat?,
         @ViewBuilder content: () -> Content
     ) -> some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -86,7 +100,7 @@ struct SetInputRow: View {
                 .foregroundStyle(.secondary)
             content()
         }
-        .frame(width: width)
+        .frame(width: width, alignment: .leading)
     }
 
     /// A borderless numeric field showing `ghost` in grey while empty. The ghost
