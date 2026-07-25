@@ -246,10 +246,12 @@ struct DailyEntryFields: View {
     @State private var weightText = ""
     @State private var caloriesText = ""
     @State private var proteinText = ""
-    /// Bumped on each copy purely to fire the haptic — a copy is otherwise
-    /// completely silent.
-    @State private var copyCount = 0
+    /// Drives the button's brief "Copied" state — a copy is otherwise completely
+    /// silent, with nothing on screen to say it worked.
+    @State private var copied = false
+    @State private var copiedReset: Task<Void, Never>?
     @State private var showClearConfirm = false
+    @Environment(\.dynamicTypeSize) private var typeSize
     /// Numeric fields are sized for the values they hold, and grow with the
     /// text size rather than truncating them.
     @ScaledMetric(relativeTo: .body) private var numberFieldWidth: CGFloat = 110
@@ -271,25 +273,13 @@ struct DailyEntryFields: View {
             }
 
             VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    Text("Food")
-                    Spacer()
-                    if !entry.foodText.isEmpty {
-                        Button("Copy", systemImage: "doc.on.doc") { copyFood() }
-                    }
-                    // The system paste control, not a Button reading
-                    // `UIPasteboard`: the tap itself is the user's consent, so it
-                    // skips the "Allow Paste?" alert that would otherwise appear
-                    // on every single meal.
-                    PasteButton(payloadType: String.self) { appendPasted($0) }
-                        .buttonBorderShape(.capsule)
-                }
-                .font(.subheadline)
-                .labelStyle(.titleOnly)
+                foodHeader
                 foodEditor
             }
             .padding(.vertical, 4)
-            .sensoryFeedback(.success, trigger: copyCount)
+            .sensoryFeedback(trigger: copied) { _, isCopied in
+                isCopied ? .success : nil
+            }
 
             LabeledContent("Calories") {
                 HStack(spacing: 8) {
@@ -340,6 +330,61 @@ struct DailyEntryFields: View {
         .onChange(of: entry.id, initial: true) { _, _ in seed() }
     }
 
+    /// The "Food" label with its Copy / Paste controls. The label keeps the same
+    /// body size as Weight, Calories and Protein — only the buttons step down to
+    /// subheadline — so the four rows still read as one column of labels.
+    @ViewBuilder private var foodHeader: some View {
+        // Label and buttons stop fitting on one line at accessibility sizes.
+        let stacked = typeSize.isAccessibilitySize
+        let layout = stacked
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
+            : AnyLayout(HStackLayout(spacing: 16))
+
+        layout {
+            Text("Food")
+            if !stacked { Spacer(minLength: 16) }
+            // 16 pt apart: enough that a thumb reaching for Paste can't catch
+            // Copy, which would silently overwrite the pasteboard.
+            HStack(spacing: 16) {
+                if !entry.foodText.isEmpty { copyButton }
+                pasteButton
+            }
+        }
+    }
+
+    private var copyButton: some View {
+        Button { copyFood() } label: {
+            ZStack {
+                // Reserves the wider word so confirming the copy doesn't shove
+                // Paste sideways under a thumb that's about to tap it.
+                Text("Copied").hidden()
+                Text(copied ? "Copied" : "Copy")
+            }
+            .font(.subheadline)
+            .frame(minHeight: 44)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(.tint)
+        .accessibilityLabel("Copy food log")
+    }
+
+    /// The system paste control, not a `Button` reading `UIPasteboard`: the tap
+    /// itself is the user's consent, so it skips the "Allow Paste?" alert that
+    /// would otherwise appear on every single meal.
+    ///
+    /// It draws itself at a fixed 34 pt and ignores `controlSize` and
+    /// `buttonStyle` alike (both measured), so it sits under the 44 pt target
+    /// this app holds elsewhere. Left as the system draws it: that is the size
+    /// Apple ships this control at, and the alternative — hand-rolling it —
+    /// costs the permission-free paste, which is the whole point of using it.
+    /// The 16 pt gap to Copy is what keeps it comfortable to hit.
+    private var pasteButton: some View {
+        PasteButton(payloadType: String.self) { appendPasted($0) }
+            .labelStyle(.titleOnly)
+            .buttonBorderShape(.capsule)
+    }
+
     private var foodEditor: some View {
         ZStack(alignment: .topLeading) {
             if entry.foodText.isEmpty {
@@ -376,7 +421,13 @@ struct DailyEntryFields: View {
 
     private func copyFood() {
         UIPasteboard.general.string = entry.foodText
-        copyCount += 1
+        withAnimation(.snappy(duration: 0.2)) { copied = true }
+        copiedReset?.cancel()
+        copiedReset = Task {
+            try? await Task.sleep(for: .seconds(1.5))
+            guard !Task.isCancelled else { return }
+            withAnimation(.snappy(duration: 0.2)) { copied = false }
+        }
     }
 
     private func appendPasted(_ strings: [String]) {
