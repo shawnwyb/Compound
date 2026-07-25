@@ -496,11 +496,17 @@ private struct HistoryRow: View {
 }
 
 /// Whole-number weights show without a decimal, otherwise one place. A weight
-/// that isn't a real number reads as no weight — `Int(_:)` traps on infinity,
-/// which took the whole app down from a row that only wanted to draw a number.
-private func formatWeight(_ weight: Double) -> String {
+/// that isn't a real number reads as no weight.
+///
+/// Formatted through `%.0f` rather than `Int(_:)`, which traps on anything it
+/// can't represent — infinity, and equally a number merely larger than
+/// `Int.max`, which is only twenty digits into a field the user can type all
+/// day. Drawing a number is not a good enough reason to crash.
+func formatWeight(_ weight: Double) -> String {
     guard weight.isFinite else { return "—" }
-    return weight == weight.rounded() ? String(Int(weight)) : String(format: "%.1f", weight)
+    return weight == weight.rounded()
+        ? String(format: "%.0f", weight)
+        : String(format: "%.1f", weight)
 }
 
 #Preview {

@@ -143,11 +143,15 @@ struct SetInputRow: View {
 }
 
 /// Formats a numeric set value, dropping a trailing `.0` (135.0 -> "135"). A
-/// value that isn't a real number formats as nothing — `Int(_:)` traps on
-/// infinity, and a field or ghost showing "inf" is no more use than a blank one.
+/// value that isn't a real number formats as nothing — a field or ghost showing
+/// "inf" is no more use than a blank one.
+///
+/// The whole-number branch goes through `%.0f`, not `Int(_:)`: that traps on
+/// any value it can't represent, so a weight past `Int.max` — twenty typed
+/// digits — took the row down as soon as it drew.
 func formattedSetNumber(_ value: Double) -> String {
     guard value.isFinite else { return "" }
-    return value == value.rounded() ? String(Int(value)) : String(value)
+    return value == value.rounded() ? String(format: "%.0f", value) : String(value)
 }
 
 /// The grey ghost string for a value — "0" when there is nothing to hint.

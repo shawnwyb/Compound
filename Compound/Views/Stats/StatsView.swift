@@ -299,16 +299,19 @@ struct StatsView: View {
     }
 
     /// Compact formatting for axis ticks and summary values. A value that isn't
-    /// a real number reads as no value: every branch below ends in an `Int(_:)`
-    /// conversion, which traps on infinity.
+    /// a real number reads as no value.
+    ///
+    /// Whole numbers print through `%.0f` rather than `Int(_:)`, which traps on
+    /// anything outside `Int` — an absurd logged weight carries all the way here
+    /// through volume and 1RM, and a label is never worth a crash.
     private func formatValue(_ value: Double, kind: SeriesKind) -> String {
         guard value.isFinite else { return "—" }
         if case .exercise(.volume) = kind { return compactVolume(value) }
         switch kind {
         case .body(.calories), .body(.protein):
-            return "\(Int(value.rounded()))"
+            return String(format: "%.0f", value.rounded())
         default:
-            return value == floor(value) ? "\(Int(value))" : String(format: "%.1f", value)
+            return value == floor(value) ? String(format: "%.0f", value) : String(format: "%.1f", value)
         }
     }
 
@@ -335,7 +338,7 @@ struct StatsView: View {
             return String(format: "%.1fk", value / 1000)
         }
         if value == floor(value) {
-            return "\(Int(value))"
+            return String(format: "%.0f", value)
         }
         return String(format: "%.0f", value)
     }
