@@ -393,9 +393,19 @@ struct DailyEntryFields: View {
     /// costs the permission-free paste, which is the whole point of using it.
     /// The 16 pt gap to Copy is what keeps it comfortable to hit.
     private var pasteButton: some View {
-        PasteButton(payloadType: String.self) { appendPasted($0) }
-            .labelStyle(.titleOnly)
-            .buttonBorderShape(.capsule)
+        PasteButton(payloadType: String.self) { strings in
+            // Hops to the main actor before touching the model. `onPaste` is a
+            // bare `@escaping ([T]) -> Void` — only the initializer is
+            // `@MainActor` — and SwiftUI loads the payload asynchronously, so
+            // it calls back off the main thread. Appending reads `foodText` and
+            // writes it back, and SwiftData is not thread-safe: two quick taps
+            // ran that read-modify-write concurrently on the same entry, which
+            // is what tore the string apart under EXC_BAD_ACCESS. On the main
+            // actor the taps queue up and each append sees the last one's work.
+            Task { @MainActor in appendPasted(strings) }
+        }
+        .labelStyle(.titleOnly)
+        .buttonBorderShape(.capsule)
     }
 
     private var foodEditor: some View {
