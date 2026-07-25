@@ -13,10 +13,12 @@ struct SetInputRow: View {
     let initialWeight: String
     let initialReps: String
     @Binding var note: String
-    /// Drives the circle's color. When `onToggle` is nil the circle is a plain
-    /// (non-tappable) indicator — used by the editor, which has no live toggle.
+    /// Drives the circle's fill. The circle is a readout, never a control: a set
+    /// is marked done by logging its reps, not by tapping.
     let completed: Bool
-    var onToggle: (() -> Void)? = nil
+    /// Live sessions pull the ghost weight into the field the moment reps are
+    /// typed, so logging a set at the same weight as last time is one number.
+    var adoptsGhostWeight = false
     let onWeightChange: (String) -> Void
     let onRepsChange: (String) -> Void
 
@@ -45,8 +47,16 @@ struct SetInputRow: View {
             }
 
             column(label: "Reps", width: stacked ? nil : repsWidth) {
-                numberField(text: $repsText, ghost: ghostReps, keyboard: .numberPad, onChange: onRepsChange)
-                    .accessibilityLabel("Reps")
+                numberField(text: $repsText, ghost: ghostReps, keyboard: .numberPad) { value in
+                    onRepsChange(value)
+                    // Assigning the text is enough — the weight field's own
+                    // `onChange` carries it down to the model from there.
+                    if adoptsGhostWeight,
+                       let adopted = adoptedGhostWeight(reps: value, weight: weightText, ghost: ghostWeight) {
+                        weightText = adopted
+                    }
+                }
+                .accessibilityLabel("Reps")
             }
 
             VStack(alignment: .leading, spacing: 4) {
@@ -70,8 +80,8 @@ struct SetInputRow: View {
     /// Done reads as a *filled* accent disc and pending as a hollow ring, so the
     /// state survives greyscale and colour-blind vision — the fill, not the hue,
     /// is what carries the meaning.
-    @ViewBuilder private var circle: some View {
-        let label = Text("\(setNumber)")
+    private var circle: some View {
+        Text("\(setNumber)")
             .font(.subheadline.weight(.semibold))
             .monospacedDigit()
             .foregroundStyle(completed ? AnyShapeStyle(.background) : AnyShapeStyle(.secondary))
@@ -87,23 +97,10 @@ struct SetInputRow: View {
                     .opacity(completed ? 0 : 1)
             }
             .animation(.snappy(duration: 0.2), value: completed)
-
-        if let onToggle {
-            // The drawn circle stays 30 pt; the tappable area around it is padded
-            // out to the 44 pt minimum, since this is the one control a user hits
-            // mid-set with sweaty hands.
-            Button(action: onToggle) {
-                label
-                    .frame(width: 44, height: 44)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
+            .frame(width: 44, height: 44)
+            .accessibilityElement()
             .accessibilityLabel("Set \(setNumber)")
             .accessibilityValue(completed ? "Done" : "Not done")
-            .accessibilityHint("Marks the set done")
-        } else {
-            label.frame(width: 44, height: 44)
-        }
     }
 
     /// A labelled field column. A nil `width` lets it take the space it needs —
@@ -153,4 +150,16 @@ func formattedSetNumber(_ value: Double) -> String {
 /// The grey ghost string for a value — "0" when there is nothing to hint.
 func ghostSetNumber(_ value: Double) -> String {
     value == 0 ? "0" : formattedSetNumber(value)
+}
+
+/// The weight a row should adopt when reps are typed into a set whose weight is
+/// still blank: last time's number, so logging a set at the same load means
+/// entering one figure instead of two.
+///
+/// Returns nil when there is nothing to adopt — reps cleared back to empty, a
+/// weight the user has already entered (never overwrite that), or a ghost with
+/// no real value behind it, which is how a bodyweight movement stays at zero.
+func adoptedGhostWeight(reps: String, weight: String, ghost: String) -> String? {
+    guard !reps.isEmpty, weight.isEmpty, !ghost.isEmpty, ghost != "0" else { return nil }
+    return ghost
 }

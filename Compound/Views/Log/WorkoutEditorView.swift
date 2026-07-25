@@ -3,7 +3,8 @@ import SwiftData
 
 /// The one workout screen, over a persisted `Workout`. It has three modes:
 /// - **Live** (`workout.isInProgress`): session timer, Finish / Discard, the
-///   rest-timer bar, tappable completion circles, and on-the-fly prefill ghosts.
+///   rest-timer bar, on-the-fly prefill ghosts, and completion circles that fill
+///   as reps are logged.
 /// - **New** (`isNew`, finished): a blank manual Log entry with Cancel / Done.
 /// - **Finished** (opened from Log): the ⋯ menu (Save as Routine / Delete) and
 ///   previous-set ghosts.
@@ -95,7 +96,6 @@ struct WorkoutEditorView: View {
                             ghostWeight: ghostWeight(at: index, in: ghosts),
                             ghostReps: ghostReps(at: index, in: ghosts),
                             isLive: isLive,
-                            onToggle: isLive ? { toggleCompleted(set) } : nil,
                             onCompletionChange: isLive ? { completionDidChange() } : nil
                         )
                     }
@@ -392,14 +392,6 @@ struct WorkoutEditorView: View {
         dismiss()
     }
 
-    /// Mark a set done by hand during a live session. Typing reps does this on its
-    /// own; the tap is for the set you performed exactly as prefilled, where the
-    /// ghost values are already right and there is nothing to type.
-    private func toggleCompleted(_ set: SetEntry) {
-        set.completed.toggle()
-        completionDidChange()
-    }
-
     /// Saved right away rather than left to autosave: completion is the one edit
     /// that says "real work happened here", and it has to survive a force-quit for
     /// launch recovery to resume the session.
@@ -500,9 +492,9 @@ struct WorkoutEditorView: View {
     }
 }
 
-/// One editable set row: the shared borderless layout. Live sessions pass a
-/// tappable `onToggle`; finished editing leaves it nil so the circle is a plain
-/// indicator (filled once the set has data).
+/// One editable set row: the shared borderless layout. The circle is a readout
+/// in both modes — live sessions fill it from the reps typed into the row,
+/// finished editing from whatever the set already holds.
 private struct WorkoutSetRow: View {
     @Bindable var set: SetEntry
     let unit: String
@@ -510,7 +502,6 @@ private struct WorkoutSetRow: View {
     let ghostWeight: Double?
     let ghostReps: Int?
     let isLive: Bool
-    var onToggle: (() -> Void)? = nil
     /// Called when typing flips the set's done state, so the Lock Screen's
     /// "Set N of M" keeps up without refreshing on every keystroke.
     var onCompletionChange: (() -> Void)? = nil
@@ -532,7 +523,10 @@ private struct WorkoutSetRow: View {
             initialReps: set.reps != 0 ? "\(set.reps)" : "",
             note: $set.note,
             completed: completed,
-            onToggle: onToggle,
+            // Only a live session adopts the ghost weight: doing it while editing
+            // history would write numbers from other sessions into a record of
+            // what actually happened.
+            adoptsGhostWeight: isLive,
             onWeightChange: { set.weight = Double($0.replacingOccurrences(of: ",", with: ".")) ?? 0 },
             onRepsChange: { text in
                 set.reps = Int(text.filter(\.isNumber)) ?? 0
