@@ -14,6 +14,7 @@ struct SingleExercisePicker: View {
     let onSelect: (Exercise) -> Void
 
     @State private var search = ""
+    @State private var showNewExercise = false
 
     var body: some View {
         NavigationStack {
@@ -54,6 +55,22 @@ struct SingleExercisePicker: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        showNewExercise = true
+                    } label: {
+                        Label("New Exercise", systemImage: "plus")
+                    }
+                }
+            }
+            .sheet(isPresented: $showNewExercise) {
+                // Single-select: creating one *is* choosing it, so this picker
+                // reports it and closes rather than dropping you back on a list
+                // to find the row you just made.
+                NewExerciseView { created in
+                    onSelect(created)
+                    dismiss()
                 }
             }
         }

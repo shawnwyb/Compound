@@ -12,6 +12,7 @@ struct ExercisePickerView: View {
 
     @State private var selectedIDs: Set<UUID> = []
     @State private var search = ""
+    @State private var showNewExercise = false
 
     var body: some View {
         NavigationStack {
@@ -53,6 +54,21 @@ struct ExercisePickerView: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Add") { addSelected() }
                         .disabled(selectedIDs.isEmpty)
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        showNewExercise = true
+                    } label: {
+                        Label("New Exercise", systemImage: "plus")
+                    }
+                }
+            }
+            .sheet(isPresented: $showNewExercise) {
+                NewExerciseView { created in
+                    // Ticked on arrival, and the search cleared so it isn't
+                    // filtered straight back out of the list behind this sheet.
+                    search = ""
+                    selectedIDs.insert(created.id)
                 }
             }
         }
