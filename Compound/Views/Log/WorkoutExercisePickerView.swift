@@ -47,15 +47,28 @@ struct WorkoutExercisePickerView: View {
             .searchable(text: $search, prompt: "Search exercises")
             .navigationTitle("Add Exercises")
             .navigationBarTitleDisplayMode(.inline)
+            // Confirming the selection sits at the bottom rather than in the
+            // toolbar, where it merged with the ✛ into one "✛ Add" capsule.
+            .safeAreaInset(edge: .bottom) {
+                if !selectedIDs.isEmpty {
+                    Button {
+                        addSelected()
+                    } label: {
+                        Text(addLabel)
+                            .fontWeight(.semibold)
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
+                    .padding()
+                    .background(.bar)
+                }
+            }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Add") { addSelected() }
-                        .disabled(selectedIDs.isEmpty)
-                }
-                ToolbarItem(placement: .topBarTrailing) {
                     Button {
                         showNewExercise = true
                     } label: {
@@ -70,6 +83,10 @@ struct WorkoutExercisePickerView: View {
                 }
             }
         }
+    }
+
+    private var addLabel: String {
+        selectedIDs.count == 1 ? "Add 1 Exercise" : "Add \(selectedIDs.count) Exercises"
     }
 
     private var existingExerciseIDs: Set<UUID> {

@@ -47,15 +47,30 @@ struct ExercisePickerView: View {
             .searchable(text: $search, prompt: "Search exercises")
             .navigationTitle("Add Exercises")
             .navigationBarTitleDisplayMode(.inline)
+            // Confirming the selection lives at the bottom, on the same
+            // prominent button the routine screen uses to start a workout. In
+            // the toolbar it sat against the ✛ and the two merged into one
+            // capsule reading "✛ Add" — two different adds, touching.
+            .safeAreaInset(edge: .bottom) {
+                if !selectedIDs.isEmpty {
+                    Button {
+                        addSelected()
+                    } label: {
+                        Text(addLabel)
+                            .fontWeight(.semibold)
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
+                    .padding()
+                    .background(.bar)
+                }
+            }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Add") { addSelected() }
-                        .disabled(selectedIDs.isEmpty)
-                }
-                ToolbarItem(placement: .topBarTrailing) {
                     Button {
                         showNewExercise = true
                     } label: {
@@ -72,6 +87,12 @@ struct ExercisePickerView: View {
                 }
             }
         }
+    }
+
+    /// Counts what's ticked, so the button says what it will do rather than
+    /// making you remember how many rows you tapped on the way down the list.
+    private var addLabel: String {
+        selectedIDs.count == 1 ? "Add 1 Exercise" : "Add \(selectedIDs.count) Exercises"
     }
 
     private var existingExerciseIDs: Set<UUID> {
