@@ -2,6 +2,12 @@
 
 An iOS workout tracker with routines, live set logging, a rest timer, progress charts, and a daily bodyweight and food log.
 
+<p align="left">
+  <img src="https://github.com/user-attachments/assets/bd7512be-580c-4574-a4b4-13434c1b8754" width="260" alt="Workout log">
+  <img src="https://github.com/user-attachments/assets/3c6e7b63-aa70-4bff-9115-c7489fba8108" width="260" alt="Body">
+  <img src="https://github.com/user-attachments/assets/848c91ae-2ea5-4eef-8ead-154ca3ae5fcc" width="260" alt="Stats">
+</p>
+
 ## Features
 
 - Build routines from a 24-exercise starter library, or add your own from any picker
