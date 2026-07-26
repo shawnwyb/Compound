@@ -23,7 +23,7 @@ An iOS workout tracker with routines, live set logging, a rest timer, progress c
 
 ## Requirements
 
-- iOS 17.0 or later
+- iPhone running iOS 17.0 or later
 - Xcode 16.0 or later (for development) — the project uses file-system synchronized groups
 
 ## Installation
