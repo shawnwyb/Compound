@@ -6,6 +6,12 @@ import SwiftData
 enum SeedData {
 
     /// group name -> starter exercises filed under it
+    ///
+    /// Strength movements only. A set here is reps and load, with no duration or
+    /// distance to record, so a treadmill run had nothing to log itself with —
+    /// it drew the same "Lb / Reps" row as a bench press and was then skipped by
+    /// every progression chart for having no weight. Cardio belongs here the day
+    /// a set can describe one.
     static let starter: [(group: String, exercises: [String])] = [
         ("Chest",     ["Bench Press", "Incline Dumbbell Press", "Cable Fly", "Push-Up"]),
         ("Back",      ["Deadlift", "Pull-Up", "Bent-Over Row", "Lat Pulldown"]),
@@ -13,7 +19,6 @@ enum SeedData {
         ("Shoulders", ["Overhead Press", "Lateral Raise", "Face Pull", "Rear Delt Fly"]),
         ("Arms",      ["Barbell Curl", "Triceps Pushdown", "Hammer Curl", "Skull Crusher"]),
         ("Abs",       ["Plank", "Hanging Leg Raise", "Cable Crunch", "Russian Twist"]),
-        ("Cardio",    ["Treadmill Run", "Rowing Machine", "Cycling", "Jump Rope"]),
     ]
 
     static func seedIfNeeded(context: ModelContext) {

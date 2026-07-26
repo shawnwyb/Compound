@@ -28,14 +28,47 @@ enum DemoData {
 
     // MARK: - Seeding
 
-    /// One progressive plan per exercise: a base weight, a per-session step, and
-    /// a working rep target.
-    private static let plan: [(name: String, base: Double, step: Double, reps: Int)] = [
-        ("Bench Press",    135, 2.5, 5),
-        ("Back Squat",     185, 5.0, 5),
-        ("Deadlift",       225, 5.0, 3),
-        ("Overhead Press",  75, 1.5, 6),
-        ("Bent-Over Row",  115, 2.5, 8),
+    /// One progressive plan per exercise: a starting weight in pounds, a working
+    /// rep target, and how the load creeps up — `step` pounds added once every
+    /// `every` times the exercise is performed.
+    ///
+    /// Steps are sizes you can actually load: 5 lb on a barbell (2.5 a side),
+    /// 5 lb a hand on dumbbells, 10 lb on a cable stack, 45 on the leg press.
+    /// `every` then sets the pace, because real accessory work doesn't move
+    /// every session. Between them they keep each lift's gain over the block
+    /// near what the movement can really add — big compounds climbing faster in
+    /// percentage terms than the isolation work hanging off them.
+    private typealias PlanItem = (name: String, base: Double, step: Double, reps: Int, every: Int)
+
+    /// A push / pull / legs split, run on rotation. Every day keeps the same
+    /// movements so each lift's progression reads as one line rather than a
+    /// scatter, and the names all come from `SeedData.starter` — an exercise the
+    /// library doesn't have is silently skipped when seeding.
+    ///
+    /// Bodyweight movements are left out on purpose: `StatsCalculator` only
+    /// tracks sets with a weight, so a seeded Pull-Up would log fine and then
+    /// never appear in the progression picker.
+    private static let split: [(day: String, exercises: [PlanItem])] = [
+        ("Push", [
+            ("Bench Press",             135,  5, 5,  2),
+            ("Overhead Press",           75,  2.5, 6,  2),
+            ("Incline Dumbbell Press",   45,  5, 8,  4),
+            ("Lateral Raise",            15,  5, 15, 4),
+            ("Triceps Pushdown",         50, 10, 12, 4),
+        ]),
+        ("Pull", [
+            ("Deadlift",                225, 10, 3,  2),
+            ("Bent-Over Row",           115,  5, 8,  2),
+            ("Lat Pulldown",            100, 10, 10, 4),
+            ("Barbell Curl",             60,  5, 10, 4),
+            ("Face Pull",                40, 10, 15, 4),
+        ]),
+        ("Legs", [
+            ("Back Squat",              185, 10, 5,  2),
+            ("Romanian Deadlift",       135, 10, 8,  3),
+            ("Leg Press",               270, 45, 10, 4),
+            ("Leg Curl",                 70, 10, 12, 4),
+        ]),
     ]
 
     static func seed(_ context: ModelContext) {
@@ -52,14 +85,17 @@ enum DemoData {
         let calendar = Calendar.current
         var appearances: [String: Int] = [:]
 
-        // ~24 sessions over the last ~8 weeks, three exercises each, rotating.
+        // 24 sessions over the last ~7 weeks: push / pull / legs every other
+        // day, eight rounds of each. The most recent lands yesterday so the
+        // streak and "last 7 days" tiles have something in them.
         let sessionCount = 24
         for session in 0..<sessionCount {
-            let daysAgo = (sessionCount - session) * 3
+            let daysAgo = (sessionCount - 1 - session) * 2 + 1
             let date = calendar.date(byAdding: .day, value: -daysAgo, to: .now) ?? .now
+            let day = split[session % split.count]
 
             let workout = Workout(
-                routineName: session % 2 == 0 ? "Full Body A" : "Full Body B",
+                routineName: day.day,
                 date: date,
                 startedAt: date,
                 durationSeconds: 3000 + (session % 4) * 300,
@@ -67,8 +103,7 @@ enum DemoData {
             )
             context.insert(workout)
 
-            let picks = (0..<3).map { plan[(session + $0) % plan.count] }
-            for (position, item) in picks.enumerated() {
+            for (position, item) in day.exercises.enumerated() {
                 guard let source = exercise(item.name) else { continue }
                 let performed = WorkoutExercise(
                     exercise: source,
@@ -80,8 +115,10 @@ enum DemoData {
 
                 let n = appearances[item.name, default: 0]
                 appearances[item.name] = n + 1
-                // Steady climb with a mild deload every third appearance.
-                let weight = item.base + item.step * Double(n) - (n % 3 == 2 ? item.step : 0)
+                // One loadable jump every `every` appearances. The sessions in
+                // between repeat the weight, which is what a block actually
+                // looks like — nobody adds to a lateral raise every week.
+                let weight = item.base + item.step * Double(n / item.every)
 
                 for setNumber in 1...3 {
                     let entry = SetEntry(
@@ -102,20 +139,19 @@ enum DemoData {
         try? context.save()
     }
 
+    /// One routine per day of the split, built from the same table the history
+    /// is — so starting "Push" prefills exactly the movements the seeded push
+    /// sessions contain, and the two can't drift apart.
     private static func seedRoutines(_ context: ModelContext, exercise: (String) -> Exercise?) {
         guard ((try? context.fetchCount(FetchDescriptor<Routine>())) ?? 0) == 0 else { return }
-        let templates: [(name: String, exercises: [String])] = [
-            ("Full Body A", ["Bench Press", "Back Squat", "Bent-Over Row"]),
-            ("Full Body B", ["Deadlift", "Overhead Press", "Barbell Curl"]),
-        ]
-        for (order, template) in templates.enumerated() {
-            let routine = Routine(name: template.name, sortOrder: order)
+        for (order, day) in split.enumerated() {
+            let routine = Routine(name: day.day, sortOrder: order)
             context.insert(routine)
-            for (position, name) in template.exercises.enumerated() {
-                guard let source = exercise(name) else { continue }
-                let item = RoutineExercise(exercise: source, targetSets: 3, position: position)
-                context.insert(item)
-                item.routine = routine
+            for (position, item) in day.exercises.enumerated() {
+                guard let source = exercise(item.name) else { continue }
+                let routineExercise = RoutineExercise(exercise: source, targetSets: 3, position: position)
+                context.insert(routineExercise)
+                routineExercise.routine = routine
             }
         }
     }
