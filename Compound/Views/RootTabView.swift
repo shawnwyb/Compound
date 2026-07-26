@@ -1,7 +1,12 @@
 import SwiftUI
 import SwiftData
 
-/// The four-tab navigation shell: Log, Routines, Stats, Profile.
+/// The five-tab navigation shell: Log, Routines, Body, Stats, Profile.
+///
+/// Ordered by how often a tab is opened, not by how important it looks. Body
+/// takes a bodyweight every morning and a meal several times a day; Stats is
+/// read-only and gets checked about weekly, so it sits after the three tabs
+/// that data goes *into* and before the settings nobody visits.
 struct RootTabView: View {
     @Environment(\.modelContext) private var context
     @Environment(\.scenePhase) private var scenePhase
@@ -31,13 +36,13 @@ struct RootTabView: View {
                 .minimizedWorkoutBar(active)
                 .tabItem { Label("Routines", systemImage: "list.bullet.rectangle") }
 
-            StatsView()
-                .minimizedWorkoutBar(active)
-                .tabItem { Label("Stats", systemImage: "chart.bar.fill") }
-
             BodyView()
                 .minimizedWorkoutBar(active)
                 .tabItem { Label("Body", systemImage: "figure") }
+
+            StatsView()
+                .minimizedWorkoutBar(active)
+                .tabItem { Label("Stats", systemImage: "chart.bar.fill") }
 
             ProfileView()
                 .minimizedWorkoutBar(active)
