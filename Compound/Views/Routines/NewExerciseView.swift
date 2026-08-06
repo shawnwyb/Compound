@@ -71,6 +71,7 @@ struct NewExerciseView: View {
             }
             .contentMargins(.horizontal, 16, for: .scrollContent)
             .listSectionSpacing(16)
+            .keyboardDoneButton()
             .navigationTitle("New Exercise")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

@@ -73,6 +73,7 @@ struct RoutineExerciseDetailView: View {
         .contentMargins(.horizontal, 16, for: .scrollContent)
         .listSectionSpacing(16)
         .scrollDismissesKeyboard(.interactively)
+        .keyboardDoneButton()
         .navigationTitle(routineExercise.exercise?.name ?? "Exercise")
         .navigationBarTitleDisplayMode(.inline)
         .sheet(isPresented: $showReplace) {

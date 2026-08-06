@@ -59,6 +59,7 @@ struct RoutineDetailView: View {
         .contentMargins(.horizontal, 16, for: .scrollContent)
         .listSectionSpacing(16)
         .environment(\.editMode, $editMode)
+        .keyboardDoneButton()
         .navigationTitle(routine.name.isEmpty ? "Untitled" : routine.name)
         .navigationBarTitleDisplayMode(.inline)
         .safeAreaInset(edge: .bottom) {
