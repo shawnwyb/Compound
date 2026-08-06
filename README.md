@@ -8,6 +8,8 @@ An iOS workout tracker with routines, live set logging, a rest timer, progress c
   <img src="https://github.com/user-attachments/assets/848c91ae-2ea5-4eef-8ead-154ca3ae5fcc" width="260" alt="Stats">
 </p>
 
+[App Store (In Review)](http://apps.apple.com/us/developer/oriented/id1862122359)
+
 ## Features
 
 - Build routines from a 24-exercise starter library, or add your own from any picker
