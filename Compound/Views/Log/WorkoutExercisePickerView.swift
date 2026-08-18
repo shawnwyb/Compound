@@ -9,10 +9,12 @@ struct WorkoutExercisePickerView: View {
 
     @Bindable var workout: Workout
     @Query(sort: \MuscleGroup.sortOrder) private var groups: [MuscleGroup]
+    @Query private var library: [Exercise]
 
     @State private var selectedIDs: Set<UUID> = []
     @State private var search = ""
     @State private var showNewExercise = false
+    @State private var pendingDelete: Exercise?
 
     var body: some View {
         NavigationStack {
@@ -21,7 +23,7 @@ struct WorkoutExercisePickerView: View {
                     let exercises = available(in: group)
                     if !exercises.isEmpty {
                         Section {
-                            ForEach(exercises) { exercise in
+                            ForEach(exercises, id: \.id) { exercise in
                                 Button {
                                     toggle(exercise)
                                 } label: {
@@ -35,6 +37,7 @@ struct WorkoutExercisePickerView: View {
                                         }
                                     }
                                 }
+                                .swipeToDeleteCustomExercise(exercise, pending: $pendingDelete)
                             }
                         } header: {
                             Text(group.name).alignedSectionHeader()
@@ -44,6 +47,7 @@ struct WorkoutExercisePickerView: View {
             }
             .contentMargins(.horizontal, 16, for: .scrollContent)
             .listSectionSpacing(16)
+            .animation(nil, value: library.count)
             .searchable(text: $search, prompt: "Search exercises")
             .navigationTitle("Add Exercises")
             .navigationBarTitleDisplayMode(.inline)
@@ -82,6 +86,9 @@ struct WorkoutExercisePickerView: View {
                     selectedIDs.insert(created.id)
                 }
             }
+            .deleteCustomExerciseDialog(pending: $pendingDelete) { deletedID in
+                selectedIDs.remove(deletedID)
+            }
         }
     }
 
@@ -94,7 +101,8 @@ struct WorkoutExercisePickerView: View {
     }
 
     private func available(in group: MuscleGroup) -> [Exercise] {
-        group.exercises
+        library
+            .filter { $0.group?.id == group.id }
             .filter { !existingExerciseIDs.contains($0.id) }
             .filter { search.isEmpty || $0.name.localizedCaseInsensitiveContains(search) }
             .sorted { $0.name < $1.name }
@@ -110,9 +118,7 @@ struct WorkoutExercisePickerView: View {
 
     private func addSelected() {
         var position = workout.exercises.count
-        let chosen = groups
-            .flatMap(\.exercises)
-            .filter { selectedIDs.contains($0.id) }
+        let chosen = library.filter { selectedIDs.contains($0.id) }
         for exercise in chosen {
             let performed = WorkoutExercise(
                 exercise: exercise,

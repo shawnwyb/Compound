@@ -11,7 +11,7 @@ enum StatsSnapshot {
                 date: workout.date,
                 exercises: workout.orderedExercises.map { performed in
                     StatsExercise(
-                        exerciseID: performed.exercise?.id ?? performed.id,
+                        exerciseID: performed.resolvedExerciseID ?? performed.id,
                         exerciseName: performed.exerciseName,
                         groupID: performed.exercise?.group?.id,
                         groupName: performed.exercise?.group?.name ?? "Uncategorized",

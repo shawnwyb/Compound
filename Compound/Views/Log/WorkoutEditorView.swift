@@ -150,6 +150,7 @@ struct WorkoutEditorView: View {
                 ) { chosen in
                     exercise.exercise = chosen
                     exercise.exerciseName = chosen.name
+                    exercise.exerciseID = chosen.id
                 }
             case .reorder:
                 ReorderExercisesView(workout: workout)
@@ -321,7 +322,7 @@ struct WorkoutEditorView: View {
         let prefersRoutine = routine?.prefillFromRoutine ?? false
         var map: [UUID: [PrefilledSet]] = [:]
         for exercise in workout.exercises {
-            guard let exID = exercise.exercise?.id, map[exID] == nil else { continue }
+            guard let exID = exercise.resolvedExerciseID, map[exID] == nil else { continue }
             map[exID] = PrefillService.lastValues(
                 for: exID,
                 in: history,
@@ -334,7 +335,7 @@ struct WorkoutEditorView: View {
     /// Ghost values for an exercise's sets: last time's numbers per set index,
     /// carrying the last known value forward for sets added beyond history.
     private func ghosts(for exercise: WorkoutExercise) -> [(weight: Double, reps: Int)] {
-        let prefill: [PrefilledSet] = exercise.exercise.flatMap { ghostMap[$0.id] } ?? []
+        let prefill: [PrefilledSet] = exercise.resolvedExerciseID.flatMap { ghostMap[$0] } ?? []
         var result: [(weight: Double, reps: Int)] = []
         for index in exercise.orderedSets.indices {
             if index < prefill.count {

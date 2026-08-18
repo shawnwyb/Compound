@@ -13,7 +13,7 @@ enum WorkoutHistory {
             HistoricalWorkout(
                 date: workout.date,
                 exercises: workout.exercises.compactMap { performed in
-                    guard let exerciseID = performed.exercise?.id else { return nil }
+                    guard let exerciseID = performed.resolvedExerciseID else { return nil }
                     return HistoricalExercise(
                         exerciseID: exerciseID,
                         sets: performed.sets.map { set in

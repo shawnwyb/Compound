@@ -61,4 +61,48 @@ extension Exercise {
         }
         return match.map { .duplicate($0) }
     }
+
+    /// Removes a custom movement from the library. Starter entries are left
+    /// alone — those are the ones that came with the app.
+    ///
+    /// Workout performances keep a snapshotted name and library id, so the log
+    /// and stats still group them. Routine slots that pointed here are deleted
+    /// (and the routine reindexed) so they don't linger as "Deleted exercise".
+    func deleteFromLibrary(in context: ModelContext) {
+        guard isCustom else { return }
+        let libraryID = id
+        // Fetch only sees what's in the store, and a custom exercise can be
+        // created and deleted before autosave has flushed the routine slots
+        // that already point at it.
+        try? context.save()
+
+        let performances = (try? context.fetch(FetchDescriptor<WorkoutExercise>())) ?? []
+        for performed in performances where performed.exercise?.id == libraryID {
+            performed.exerciseID = libraryID
+            // Unidirectional — SwiftData will not nullify this for us.
+            performed.exercise = nil
+        }
+
+        let planned = (try? context.fetch(FetchDescriptor<RoutineExercise>())) ?? []
+        var routines: [Routine] = []
+        var seen = Set<UUID>()
+        for item in planned where item.exercise?.id == libraryID {
+            if let routine = item.routine, seen.insert(routine.id).inserted {
+                routines.append(routine)
+            }
+            // Linked through the parent the same way insert is: `context.delete`
+            // updates the store but doesn't tell anything observing `routine.exercises`.
+            item.routine?.exercises.removeAll { $0.id == item.id }
+            context.delete(item)
+        }
+
+        group?.exercises.removeAll { $0.id == libraryID }
+        context.delete(self)
+
+        for routine in routines {
+            for (index, item) in routine.orderedExercises.enumerated() {
+                item.position = index
+            }
+        }
+    }
 }

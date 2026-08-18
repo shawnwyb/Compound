@@ -7,6 +7,7 @@ import SwiftData
 struct SingleExercisePicker: View {
     @Environment(\.dismiss) private var dismiss
     @Query(sort: \MuscleGroup.sortOrder) private var groups: [MuscleGroup]
+    @Query private var library: [Exercise]
 
     let title: String
     let blockedIDs: Set<UUID>
@@ -15,6 +16,7 @@ struct SingleExercisePicker: View {
 
     @State private var search = ""
     @State private var showNewExercise = false
+    @State private var pendingDelete: Exercise?
 
     var body: some View {
         NavigationStack {
@@ -23,7 +25,7 @@ struct SingleExercisePicker: View {
                     let exercises = available(in: group)
                     if !exercises.isEmpty {
                         Section {
-                            ForEach(exercises) { exercise in
+                            ForEach(exercises, id: \.id) { exercise in
                                 Button {
                                     onSelect(exercise)
                                     dismiss()
@@ -40,6 +42,7 @@ struct SingleExercisePicker: View {
                                     .contentShape(Rectangle())
                                 }
                                 .buttonStyle(.plain)
+                                .swipeToDeleteCustomExercise(exercise, pending: $pendingDelete)
                             }
                         } header: {
                             Text(group.name).alignedSectionHeader()
@@ -49,6 +52,7 @@ struct SingleExercisePicker: View {
             }
             .contentMargins(.horizontal, 16, for: .scrollContent)
             .listSectionSpacing(16)
+            .animation(nil, value: library.count)
             .searchable(text: $search, prompt: "Search exercises")
             .navigationTitle(title)
             .navigationBarTitleDisplayMode(.inline)
@@ -73,11 +77,13 @@ struct SingleExercisePicker: View {
                     dismiss()
                 }
             }
+            .deleteCustomExerciseDialog(pending: $pendingDelete)
         }
     }
 
     private func available(in group: MuscleGroup) -> [Exercise] {
-        group.exercises
+        library
+            .filter { $0.group?.id == group.id }
             .filter { !blockedIDs.contains($0.id) }
             .filter { search.isEmpty || $0.name.localizedCaseInsensitiveContains(search) }
             .sorted { $0.name < $1.name }

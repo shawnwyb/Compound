@@ -153,7 +153,7 @@ enum DataExport {
                     exercises: workout.orderedExercises.map { performed in
                         WorkoutExerciseDTO(
                             id: performed.id,
-                            exerciseID: performed.exercise?.id,
+                            exerciseID: performed.resolvedExerciseID,
                             exerciseName: performed.exerciseName,
                             position: performed.position,
                             sets: performed.orderedSets.map { set in

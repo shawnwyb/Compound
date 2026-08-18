@@ -1,13 +1,17 @@
 import Foundation
 import SwiftData
 
-/// A *record* row inside a performed workout, with a snapshot of the exercise
-/// name so history survives the exercise being renamed or deleted.
+/// A *record* row inside a performed workout, with snapshots of the exercise
+/// name and library id so history survives the exercise being renamed or deleted.
 @Model
 final class WorkoutExercise {
     var id: UUID
     var exerciseName: String
     var position: Int
+    /// Library identity, snapshotted so stats and prefill still group this
+    /// performance after the exercise is deleted. Distinct from `id`, which
+    /// identifies this row.
+    var exerciseID: UUID?
 
     var workout: Workout?
 
@@ -27,6 +31,7 @@ final class WorkoutExercise {
         self.exercise = exercise
         self.exerciseName = exerciseName
         self.position = position
+        self.exerciseID = exercise?.id
     }
 }
 
@@ -35,4 +40,8 @@ extension WorkoutExercise {
     var orderedSets: [SetEntry] {
         sets.sorted { $0.setNumber < $1.setNumber }
     }
+
+    /// Library identity for stats and prefill: the snapshot, then the live
+    /// relationship, so grouping survives deletion of the library entry.
+    var resolvedExerciseID: UUID? { exerciseID ?? exercise?.id }
 }
