@@ -10,6 +10,8 @@ An iOS workout tracker with routines, live set logging, a rest timer, progress c
 
 [App Store](https://apps.apple.com/us/app/compound-gym-workout-tracker/id6794950713)
 
+Notice: This app is no longer available on the App Store. Apple Developer subscription expired.
+
 ## Features
 
 - Build routines from a 24-exercise starter library, or add your own from any picker
